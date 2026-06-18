@@ -1,12 +1,5 @@
 /**
  * Envia uma mensagem. Rota protegida por authMiddleware.
- *
- * Status code por tipo de falha:
- * - 400 BAD_NUMBER / EMPTY_MESSAGE / MISSING_PARAMS
- * - 404 NOT_REGISTERED
- * - 503 NOT_READY / NOT_INITIALIZED
- * - 504 SEND_TIMEOUT
- * - 500 INTERNAL_EXCEPTION
  */
 
 import { Router } from "express";

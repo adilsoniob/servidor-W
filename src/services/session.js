@@ -35,7 +35,7 @@ const withTimeout = (promise, ms, label) =>
   Promise.race([
     promise,
     new Promise((_, reject) =>
-      setTimeout(() => reject(new Error(`${label} timeout ap�s ${ms}ms`)), ms)
+      setTimeout(() => reject(new Error(`${label} timeout após ${ms}ms`)), ms)
     ),
   ]);
 
@@ -90,12 +90,12 @@ export class WhatsAppSession {
   }
 
   async sendMessage(number, message) {
-    if (!this.client) return this._fail("NOT_INITIALIZED", "Cliente n�o inicializado.");
-    if (!this.isReady()) return this._fail("NOT_READY", "WhatsApp n�o est� conectado.");
+    if (!this.client) return this._fail("NOT_INITIALIZED", "Cliente não inicializado.");
+    if (!this.isReady()) return this._fail("NOT_READY", "WhatsApp não está conectado.");
 
     const cleanNumber = String(number || "").replace(/\D+/g, "");
     if (cleanNumber.length < 10) {
-      return this._fail("BAD_NUMBER", `N�mero inv�lido (${cleanNumber.length} d�gitos).`, cleanNumber);
+      return this._fail("BAD_NUMBER", `Número inválido (${cleanNumber.length} dígitos).`, cleanNumber);
     }
     if (!message || !message.trim()) {
       return this._fail("EMPTY_MESSAGE", "Mensagem vazia.");
@@ -110,8 +110,8 @@ export class WhatsAppSession {
         "getNumberId"
       );
       if (registered === null) {
-        this._addLog("warn", "N�mero n�o registrado no WhatsApp", { to: cleanNumber });
-        return this._fail("NOT_REGISTERED", "N�mero n�o registrado no WhatsApp.", cleanNumber);
+        this._addLog("warn", "Número não registrado no WhatsApp", { to: cleanNumber });
+        return this._fail("NOT_REGISTERED", "Número não registrado no WhatsApp.", cleanNumber);
       }
 
       const sent = await withTimeout(
@@ -147,8 +147,8 @@ export class WhatsAppSession {
         await client.initialize();
         log.info(`[${this.accountLabel}] Cliente WhatsApp inicializado`);
       } catch (err) {
-        this._setStatus(STATES.ERROR, `Erro na inicializa��o: ${err.message}`);
-        log.error(`[${this.accountLabel}] Falha na inicializa��o`, { error: err.message });
+        this._setStatus(STATES.ERROR, `Erro na inicialização: ${err.message}`);
+        log.error(`[${this.accountLabel}] Falha na inicialização`, { error: err.message });
         this._scheduleAutoReconnect("init_error");
       } finally {
         this.initializing = null;
@@ -159,7 +159,7 @@ export class WhatsAppSession {
   }
 
   async reconnect() {
-    log.info(`[${this.accountLabel}] Reconex�o manual solicitada`);
+    log.info(`[${this.accountLabel}] Reconexão manual solicitada`);
     this.reconnectAttempts = 0;
     this._setStatus(STATES.RECONNECTING, "Reconectando...");
     this.initializing = null;
@@ -167,17 +167,17 @@ export class WhatsAppSession {
   }
 
   async disconnect() {
-    log.info(`[${this.accountLabel}] Desconex�o manual solicitada`);
+    log.info(`[${this.accountLabel}] Desconexão manual solicitada`);
     await this._destroyClientSafely();
     this._setStatus(STATES.OFFLINE, "Desconectado manualmente.");
     this.emit("disconnected", { reason: "manual" });
   }
 
   async removeSession() {
-    log.info(`[${this.accountLabel}] Removendo sess�o`);
+    log.info(`[${this.accountLabel}] Removendo sessão`);
     this._destroyed = true;
     await this._destroyClientSafely(true);
-    this._setStatus(STATES.OFFLINE, "Sess�o removida.");
+    this._setStatus(STATES.OFFLINE, "Sessão removida.");
     this.profileName = null;
     this.profileNumber = null;
     this.profilePic = null;
@@ -252,9 +252,9 @@ export class WhatsAppSession {
     });
 
     client.on("auth_failure", (msg) => {
-      this._setStatus(STATES.AUTH_FAILURE, `Falha de autentica��o: ${msg}`);
-      log.error(`[${this.accountLabel}] Falha de autentica��o`, { message: msg });
-      this._addLog("auth_failure", `Falha de autentica��o: ${msg}`, { message: msg });
+      this._setStatus(STATES.AUTH_FAILURE, `Falha de autenticação: ${msg}`);
+      log.error(`[${this.accountLabel}] Falha de autenticação`, { message: msg });
+      this._addLog("auth_failure", `Falha de autenticação: ${msg}`, { message: msg });
       this._scheduleAutoReconnect("auth_failure", 5000);
     });
 
@@ -296,7 +296,7 @@ export class WhatsAppSession {
         const authDir = path.join(process.cwd(), ".wwebjs_auth", `session-${this.config.clientId}-${this.index}`);
         if (fs.existsSync(authDir)) {
           fs.rmSync(authDir, { recursive: true, force: true });
-          log.info(`[${this.accountLabel}] Pasta de autentica��o removida`);
+          log.info(`[${this.accountLabel}] Pasta de autenticação removida`);
         }
       } catch {}
     }
@@ -305,16 +305,16 @@ export class WhatsAppSession {
   _scheduleAutoReconnect(reason, baseDelayMs) {
     if (this._destroyed) return;
     if (this.reconnectAttempts >= this.config.maxReconnectAttempts) {
-      log.error(`[${this.accountLabel}] Limite de reconex�o atingido`, { reason, attempts: this.reconnectAttempts });
+      log.error(`[${this.accountLabel}] Limite de reconexão atingido`, { reason, attempts: this.reconnectAttempts });
       return;
     }
     this.reconnectAttempts += 1;
     const base = baseDelayMs ?? this.config.reconnectBaseDelayMs;
     const delay = base * Math.min(this.reconnectAttempts, 3);
-    log.info(`[${this.accountLabel}] Reconex�o autom�tica agendada`, { reason, attempt: this.reconnectAttempts, delayMs: delay });
+    log.info(`[${this.accountLabel}] Reconexão automática agendada`, { reason, attempt: this.reconnectAttempts, delayMs: delay });
     setTimeout(() => {
       this.initialize().catch((err) =>
-        log.error(`[${this.accountLabel}] Falha na reconex�o autom�tica`, { error: err.message })
+        log.error(`[${this.accountLabel}] Falha na reconexão automática`, { error: err.message })
       );
     }, delay);
   }

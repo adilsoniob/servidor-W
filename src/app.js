@@ -35,25 +35,25 @@ export function createApp(whatsapp) {
   app.post("/api/account/:index/connect", authMiddleware, (req, res) => {
     const index = parseInt(req.params.index, 10);
     whatsapp.connectAccount(index);
-    res.json({ success: true, message: `Solicita��o de conex�o enviada para conta ${index}.` });
+    res.json({ success: true, message: `Solicitação de conexão enviada para conta ${index}.` });
   });
 
   app.post("/api/account/:index/reconnect", authMiddleware, (req, res) => {
     const index = parseInt(req.params.index, 10);
     whatsapp.reconnectAccount(index);
-    res.json({ success: true, message: `Solicita��o de reconex�o enviada para conta ${index}.` });
+    res.json({ success: true, message: `Solicitação de reconexão enviada para conta ${index}.` });
   });
 
   app.post("/api/account/:index/disconnect", authMiddleware, (req, res) => {
     const index = parseInt(req.params.index, 10);
     whatsapp.disconnectAccount(index);
-    res.json({ success: true, message: `Solicita��o de desconex�o enviada para conta ${index}.` });
+    res.json({ success: true, message: `Solicitação de desconexão enviada para conta ${index}.` });
   });
 
   app.post("/api/account/:index/remove", authMiddleware, (req, res) => {
     const index = parseInt(req.params.index, 10);
     whatsapp.removeAccount(index);
-    res.json({ success: true, message: `Sess�o da conta ${index} removida.` });
+    res.json({ success: true, message: `Sessão da conta ${index} removida.` });
   });
 
   app.get("/api/accounts", (req, res) => {
@@ -67,7 +67,7 @@ export function createApp(whatsapp) {
   });
 
   // 404 + error handler
-  app.use((_req, res) => res.status(404).json({ success: false, error: "Rota n�o encontrada." }));
+  app.use((_req, res) => res.status(404).json({ success: false, error: "Rota não encontrada." }));
   app.use((err, _req, res, _next) => {
     console.error("[express-error]", err);
     res.status(500).json({ success: false, error: "Erro interno do servidor." });

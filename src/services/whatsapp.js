@@ -46,7 +46,7 @@ export class WhatsAppService {
         return account.sendMessage(number, message);
       }
     }
-    log.warn("Nenhuma conta WhatsApp dispon�vel para envio");
+    log.warn("Nenhuma conta WhatsApp disponível para envio");
     return { success: false, code: "NO_ACCOUNT_READY", error: "Nenhuma conta WhatsApp conectada e pronta." };
   }
 
@@ -68,32 +68,32 @@ export class WhatsAppService {
 
   async connectAccount(index) {
     const account = this.getAccount(index);
-    if (!account) return { success: false, code: "INVALID_INDEX", error: `Conta ${index} inv�lida.` };
+    if (!account) return { success: false, code: "INVALID_INDEX", error: `Conta ${index} inválida.` };
     return account.initialize();
   }
 
   async reconnectAccount(index) {
     const account = this.getAccount(index);
-    if (!account) return { success: false, code: "INVALID_INDEX", error: `Conta ${index} inv�lida.` };
+    if (!account) return { success: false, code: "INVALID_INDEX", error: `Conta ${index} inválida.` };
     return account.reconnect();
   }
 
   async disconnectAccount(index) {
     const account = this.getAccount(index);
-    if (!account) return { success: false, code: "INVALID_INDEX", error: `Conta ${index} inv�lida.` };
+    if (!account) return { success: false, code: "INVALID_INDEX", error: `Conta ${index} inválida.` };
     return account.disconnect();
   }
 
   async removeAccount(index) {
     const account = this.getAccount(index);
-    if (!account) return { success: false, code: "INVALID_INDEX", error: `Conta ${index} inv�lida.` };
+    if (!account) return { success: false, code: "INVALID_INDEX", error: `Conta ${index} inválida.` };
     return account.removeSession();
   }
 
   initializeAll() {
     for (const account of this.accounts) {
       account.initialize().catch((err) =>
-        log.error(`[${account.accountLabel}] Falha na inicializa��o autom�tica`, { error: err.message })
+        log.error(`[${account.accountLabel}] Falha na inicialização automática`, { error: err.message })
       );
     }
   }
