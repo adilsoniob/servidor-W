@@ -8,7 +8,7 @@ export function createAdminRouter(whatsapp) {
 
   router.get("/api/admin/status", (_req, res) => {
     const primary = whatsapp.getStatus();
-    res.json({ ...primary, accounts: whatsapp.getAccounts() });
+    res.json({ success: true, ...primary, accounts: whatsapp.getAccounts() });
   });
 
   // ---- Messages ----
