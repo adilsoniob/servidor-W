@@ -6,7 +6,7 @@ import * as queue from "./queue.js";
 const Client = pkg.Client || pkg.default?.Client;
 const LocalAuth = pkg.LocalAuth || pkg.default?.LocalAuth;
 
-const RATE = { maxPerMinute: 8, intervalMs: 3000, sent: [], lastSend: 0 };
+const RATE = { maxPerMinute: 5, intervalMs: 6000, sent: [], lastSend: 0 };
 
 const STATES = Object.freeze({
   STARTING: "starting",
