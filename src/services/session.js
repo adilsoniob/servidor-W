@@ -138,7 +138,7 @@ export class WhatsAppSession {
     const wait = RATE.intervalMs - (now - RATE.lastSend);
     if (wait > 0) await new Promise((r) => setTimeout(r, wait));
 
-    const chatId = `${cleanNumber}@c.us`;
+    let chatId = `${cleanNumber}@c.us`;
     try {
       const registered = await withTimeout(
         this.client.getNumberId(cleanNumber),
@@ -148,6 +148,11 @@ export class WhatsAppSession {
       if (registered === null) {
         this._addLog("warn", "Número não registrado no WhatsApp", { to: cleanNumber });
         return this._fail("NOT_REGISTERED", "Número não registrado no WhatsApp.", cleanNumber);
+      }
+      if (typeof registered === "object" && registered._serialized) {
+        chatId = registered._serialized;
+      } else if (typeof registered === "string" && (registered.includes("@") || registered.length > 15)) {
+        chatId = registered;
       }
 
       const sent = await withTimeout(
