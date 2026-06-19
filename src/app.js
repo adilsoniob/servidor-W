@@ -99,11 +99,6 @@ export function createApp(whatsapp) {
     });
   });
 
-  app.get("/api/admin/messages/stats", (req, res) => {
-    const stats = whatsapp.storage?.getMessageStatsByPeriod() || {};
-    res.json({ success: true, stats });
-  });
-
   app.get("/api/admin/integrations", (req, res) => {
     const integrations = whatsapp.storage?.getIntegrations() || [];
     res.json({ success: true, integrations });

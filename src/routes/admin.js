@@ -25,6 +25,11 @@ export function createAdminRouter(whatsapp) {
     res.json({ success: true, messages, total: messages.length, filters });
   });
 
+  router.get("/api/admin/messages/stats", (_req, res) => {
+    const stats = storage?.getMessageStatsByPeriod() || {};
+    res.json({ success: true, stats });
+  });
+
   router.get("/api/admin/messages/:phone", (req, res) => {
     const phone = req.params.phone;
     const messages = storage?.getMessagesByPhone(phone) || [];
