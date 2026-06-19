@@ -2,7 +2,7 @@ import { config } from "../config.js";
 import { log } from "../logger.js";
 import { WhatsAppSession } from "./session.js";
 
-const MAX_ACCOUNTS = 5;
+const MAX_ACCOUNTS = config.maxAccounts;
 
 export class WhatsAppService {
   constructor(io, storage) {

@@ -5,6 +5,8 @@ import { log } from "../logger.js";
 const Client = pkg.Client || pkg.default?.Client;
 const LocalAuth = pkg.LocalAuth || pkg.default?.LocalAuth;
 
+const RATE = { maxPerMinute: 8, intervalMs: 3000, sent: [], lastSend: 0 };
+
 const STATES = Object.freeze({
   STARTING: "starting",
   AWAITING_QR: "awaiting_qr",
@@ -29,6 +31,8 @@ const PUPPETEER_ARGS = [
   "--disable-sync",
   "--disable-translate",
   "--mute-audio",
+  "--disable-features=IsolateOrigins,site-per-process",
+  "--user-agent=Mozilla/5.0 (Linux; Android 13; SM-S908B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.5938.140 Mobile Safari/537.36",
 ];
 
 const withTimeout = (promise, ms, label) =>
@@ -57,6 +61,8 @@ export class WhatsAppSession {
     this.lastSendAt = null;
     this.lastError = null;
     this._destroyed = false;
+    this._msgQueue = [];
+    this._processingQueue = false;
   }
 
   get accountLabel() {
@@ -97,40 +103,71 @@ export class WhatsAppSession {
     if (cleanNumber.length < 10) {
       return this._fail("BAD_NUMBER", `Número inválido (${cleanNumber.length} dígitos).`, cleanNumber);
     }
+    if (!cleanNumber.startsWith("55") && cleanNumber.length < 12) {
+      return this._fail("BAD_NUMBER", "Número precisa ter DDI 55 (Brasil).", cleanNumber);
+    }
     if (!message || !message.trim()) {
       return this._fail("EMPTY_MESSAGE", "Mensagem vazia.");
     }
 
-    const chatId = `${cleanNumber}@c.us`;
+    return new Promise((resolve) => {
+      this._msgQueue.push({ cleanNumber, message, resolve });
+      this._processQueue();
+    });
+  }
 
-    try {
-      const registered = await withTimeout(
-        this.client.getNumberId(cleanNumber),
-        5000,
-        "getNumberId"
-      );
-      if (registered === null) {
-        this._addLog("warn", "Número não registrado no WhatsApp", { to: cleanNumber });
-        return this._fail("NOT_REGISTERED", "Número não registrado no WhatsApp.", cleanNumber);
+  async _processQueue() {
+    if (this._processingQueue || this._msgQueue.length === 0) return;
+    this._processingQueue = true;
+
+    while (this._msgQueue.length > 0) {
+      const item = this._msgQueue.shift();
+      const { cleanNumber, message, resolve } = item;
+
+      const now = Date.now();
+      RATE.sent = RATE.sent.filter((t) => now - t < 60000);
+      if (RATE.sent.length >= RATE.maxPerMinute) {
+        resolve(this._fail("RATE_LIMIT", `Limite de ${RATE.maxPerMinute} mensagens/minuto atingido.`));
+        continue;
       }
+      const wait = RATE.intervalMs - (now - RATE.lastSend);
+      if (wait > 0) await new Promise((r) => setTimeout(r, wait));
 
-      const sent = await withTimeout(
-        this.client.sendMessage(chatId, message),
-        this.config.sendTimeoutMs,
-        "sendMessage"
-      );
+      const chatId = `${cleanNumber}@c.us`;
+      try {
+        const registered = await withTimeout(
+          this.client.getNumberId(cleanNumber),
+          5000,
+          "getNumberId"
+        );
+        if (registered === null) {
+          this._addLog("warn", "Número não registrado no WhatsApp", { to: cleanNumber });
+          resolve(this._fail("NOT_REGISTERED", "Número não registrado no WhatsApp.", cleanNumber));
+          continue;
+        }
 
-      this.lastSendAt = new Date().toISOString();
-      const messageId = sent?.id?._serialized || sent?.id || null;
-      log.info(`[${this.accountLabel}] Mensagem enviada`, { to: chatId, messageId });
-      this.storage?.addMessage({ to: cleanNumber, status: "sent", source: "api", id: messageId, account: this.index });
-      this._addLog("message_sent", `Mensagem enviada para ${cleanNumber}`, { to: cleanNumber, messageId });
-      this.emit("admin:message", { to: cleanNumber, status: "sent", account: this.index });
-      return { success: true, message: "Mensagem enviada com sucesso.", to: chatId, messageId };
-    } catch (err) {
-      this._addLog("message_error", `Erro ao enviar para ${cleanNumber}: ${err.message}`, { to: cleanNumber, error: err.message });
-      return this._fail("SEND_ERROR", err.message || String(err), cleanNumber);
+        const sent = await withTimeout(
+          this.client.sendMessage(chatId, message),
+          this.config.sendTimeoutMs,
+          "sendMessage"
+        );
+
+        this.lastSendAt = new Date().toISOString();
+        RATE.lastSend = Date.now();
+        RATE.sent.push(RATE.lastSend);
+        const messageId = sent?.id?._serialized || sent?.id || null;
+        log.info(`[${this.accountLabel}] Mensagem enviada`, { to: chatId, messageId });
+        this.storage?.addMessage({ to: cleanNumber, status: "sent", source: "api", id: messageId, account: this.index });
+        this._addLog("message_sent", `Mensagem enviada para ${cleanNumber}`, { to: cleanNumber, messageId });
+        this.emit("admin:message", { to: cleanNumber, status: "sent", account: this.index });
+        resolve({ success: true, message: "Mensagem enviada com sucesso.", to: chatId, messageId });
+      } catch (err) {
+        this._addLog("message_error", `Erro ao enviar para ${cleanNumber}: ${err.message}`, { to: cleanNumber, error: err.message });
+        resolve(this._fail("SEND_ERROR", err.message || String(err), cleanNumber));
+      }
     }
+
+    this._processingQueue = false;
   }
 
   async initialize() {
@@ -140,6 +177,7 @@ export class WhatsAppSession {
     this.initializing = (async () => {
       try {
         await this._destroyClientSafely();
+        await this._cleanupChromiumLocks();
         const client = this._createClient();
         this._attachHandlers(client);
         this.client = client;
@@ -194,8 +232,24 @@ export class WhatsAppSession {
   _createClient() {
     return new Client({
       authStrategy: new LocalAuth({ clientId: this.config.clientId + "-" + this.index }),
-      puppeteer: { headless: true, args: PUPPETEER_ARGS },
+      puppeteer: { headless: true, args: PUPPETEER_ARGS, protocolTimeout: 120_000 },
     });
+  }
+
+  async _cleanupChromiumLocks() {
+    try {
+      const fs = await import("node:fs");
+      const path = await import("node:path");
+      const sessionDir = path.join(this.config.sessionFolder, `session-${this.config.clientId}-${this.index}`);
+      if (fs.existsSync(sessionDir)) {
+        for (const file of fs.readdirSync(sessionDir)) {
+          if (file.startsWith("Singleton")) {
+            const fp = path.join(sessionDir, file);
+            try { fs.unlinkSync(fp); } catch {}
+          }
+        }
+      }
+    } catch {}
   }
 
   _attachHandlers(client) {
@@ -258,19 +312,30 @@ export class WhatsAppSession {
       this._scheduleAutoReconnect("auth_failure", 5000);
     });
 
+    const stripSuffix = (s) => {
+      if (!s) return "";
+      return s.replace(/@\w+\.\w+$/, "").replace(/@\w+$/, "");
+    };
+
+    const isValidPhone = (s) => s && s.length >= 10 && /^\d+$/.test(s) && !s.startsWith("0");
+
     client.on("message_ack", (msg, ack) => {
       const statusMap = { 1: "sent", 2: "received", 3: "read" };
       const status = statusMap[ack] || "sent";
-      const phone = msg.from?.replace("@c.us", "") || "";
-      if (phone) {
+      const raw = msg.from?.remote || msg.from?._serialized || msg.from;
+      const phone = stripSuffix(raw);
+      if (isValidPhone(phone)) {
         this.storage?.updateMessageStatus(phone, status, this.index);
         this.emit("admin:message", { to: phone, status, account: this.index });
       }
     });
 
     client.on("message_create", (msg) => {
-      if (msg.fromMe && msg.to) {
-        const phone = msg.to.replace("@c.us", "");
+      const raw = msg.to?.remote || msg.to?._serialized || msg.to;
+      const rawStr = String(raw || "");
+      if (!rawStr.includes("@c.us")) return;
+      const phone = stripSuffix(rawStr);
+      if (isValidPhone(phone)) {
         this.storage?.addMessage({ to: phone, status: "sent", source: "app", id: msg.id?._serialized, account: this.index });
         this.emit("admin:message", { to: phone, status: "sent", account: this.index });
       }

@@ -22,5 +22,5 @@ export const config = {
   // Pasta da sessão WhatsApp (suporta SESSION_FOLDER para Railway)
   sessionFolder: process.env.SESSION_FOLDER || "./session",
   // Número máximo de contas simultâneas
-  maxAccounts: parseInt(process.env.MAX_ACCOUNTS || "5", 10),
+  maxAccounts: parseInt(process.env.MAX_ACCOUNTS || "1", 10),
 };

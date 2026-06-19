@@ -34,17 +34,19 @@ export class Storage {
   }
 
   addMessage(entry) {
+    const cleanTo = String(entry.to || "").replace(/\D+/g, "");
+    if (cleanTo.length < 10) return null;
     const messages = readJSON(this.messagesPath) || [];
     messages.push({
       id: entry.id || `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      to: entry.to,
+      to: cleanTo,
       account: entry.account ?? 0,
       status: entry.status || "sent",
       timestamp: entry.timestamp || new Date().toISOString(),
       source: entry.source || "api",
     });
     writeJSON(this.messagesPath, messages);
-    this._updateContact(entry.to, entry.status || "sent", entry.account ?? 0);
+    this._updateContact(cleanTo, entry.status || "sent", entry.account ?? 0);
     return messages[messages.length - 1];
   }
 

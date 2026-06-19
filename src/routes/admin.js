@@ -401,6 +401,14 @@ function statusTag(state) {
 function esc(s) { if (!s) return ''; var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 function fmt(iso) { return iso ? new Date(iso).toLocaleString("pt-BR") : '---'; }
 function fmtShort(iso) { if (!iso) return '---'; var d = new Date(iso); return d.toLocaleDateString("pt-BR") + ' ' + d.toLocaleTimeString("pt-BR"); }
+function fmtPhone(p) {
+  if (!p) return '---';
+  var d = String(p).replace(/\D/g, '');
+  if (d.startsWith('55')) d = d.slice(2);
+  if (d.length === 11) return '+55 (' + d.slice(0,2) + ') ' + d.slice(2,7) + '-' + d.slice(7);
+  if (d.length === 10) return '+55 (' + d.slice(0,2) + ') ' + d.slice(2,6) + '-' + d.slice(6);
+  return '+55 ' + d;
+}
 
 // ---- KPI Render ----
 function renderKPI(data) {
@@ -445,7 +453,7 @@ function renderAccounts(accounts) {
       : '';
 
     var profileHtml = a.profileName
-      ? '<div class="profile-info"><strong>' + esc(a.profileName) + '</strong><small>' + (a.profileNumber ? '+55 ' + a.profileNumber : '') + '</small></div>'
+      ? '<div class="profile-info"><strong>' + esc(a.profileName) + '</strong><small>' + (a.profileNumber ? fmtPhone(a.profileNumber) : '') + '</small></div>'
       : '';
 
     var infoHtml = '';
@@ -550,7 +558,7 @@ async function loadMessages() {
       var sc = (m.status === "sent"||m.status==="received"||m.status==="delivered") ? "success" : m.status==="failed" ? "error" : "warning";
       var sl = { sent:"Enviado", received:"Recebida", delivered:"Entregue", read:"Lida", failed:"Falhou" };
       var ac = "WA " + String((m.account!==undefined?m.account:0)+1).padStart(2,"0");
-      return '<tr><td>' + fmt(m.timestamp) + '</td><td>+55 ' + m.to + '</td><td>' + ac + '</td><td><span class="tag tag-' + sc + '">' + (sl[m.status]||m.status) + '</span></td><td>' + (m.source||"api") + '</td></tr>';
+      return '<tr><td>' + fmt(m.timestamp) + '</td><td>' + fmtPhone(m.to) + '</td><td>' + ac + '</td><td><span class="tag tag-' + sc + '">' + (sl[m.status]||m.status) + '</span></td><td>' + (m.source||"api") + '</td></tr>';
     }).join("");
   } catch(e) {}
 }
@@ -585,7 +593,7 @@ async function loadContacts() {
       var sc = (c.lastStatus==="sent"||c.lastStatus==="received"||c.lastStatus==="delivered") ? "success" : c.lastStatus==="failed" ? "error" : "warning";
       var sl = { sent:"Enviado", received:"Recebida", delivered:"Entregue", read:"Lida", failed:"Falhou" };
       var ac = "WA " + String((c.account!==undefined?c.account:0)+1).padStart(2,"0");
-      return '<div class="contact-item"><div><div class="contact-phone">+55 ' + (c.phone||"---") + '</div><div style="color:var(--muted);font-size:.68rem">' + ac + ' | ' + fmt(c.lastSendAt) + '</div></div><div class="contact-meta" style="text-align:right"><span class="tag tag-' + sc + '">' + (sl[c.lastStatus]||c.lastStatus) + '</span><div style="margin-top:3px;font-size:.68rem;color:var(--muted)">' + (c.count||0) + ' msg</div></div></div>';
+      return '<div class="contact-item"><div><div class="contact-phone">' + fmtPhone(c.phone) + '</div><div style="color:var(--muted);font-size:.68rem">' + ac + ' | ' + fmt(c.lastSendAt) + '</div></div><div class="contact-meta" style="text-align:right"><span class="tag tag-' + sc + '">' + (sl[c.lastStatus]||c.lastStatus) + '</span><div style="margin-top:3px;font-size:.68rem;color:var(--muted)">' + (c.count||0) + ' msg</div></div></div>';
     }).join("");
   } catch(e) {}
 }
@@ -639,7 +647,7 @@ async function loadReports() {
       var sc = (m.status==="sent"||m.status==="received"||m.status==="delivered") ? "success" : m.status==="failed" ? "error" : "warning";
       var sl = { sent:"Enviado", received:"Recebida", delivered:"Entregue", read:"Lida", failed:"Falhou" };
       var ac = "WA " + String((m.account!==undefined?m.account:0)+1).padStart(2,"0");
-      return '<tr><td>' + fmtShort(m.timestamp) + '</td><td>+55 ' + m.to + '</td><td>' + ac + '</td><td><span class="tag tag-' + sc + '">' + (sl[m.status]||m.status) + '</span></td></tr>';
+      return '<tr><td>' + fmtShort(m.timestamp) + '</td><td>' + fmtPhone(m.to) + '</td><td>' + ac + '</td><td><span class="tag tag-' + sc + '">' + (sl[m.status]||m.status) + '</span></td></tr>';
     }).join("");
   } catch(e) {}
 }
