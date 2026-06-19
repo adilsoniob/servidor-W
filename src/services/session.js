@@ -2,6 +2,7 @@ import pkg from "whatsapp-web.js";
 import qrcode from "qrcode";
 import { log } from "../logger.js";
 import * as queue from "./queue.js";
+import { Stealth } from "./stealth/index.js";
 
 const Client = pkg.Client || pkg.default?.Client;
 const LocalAuth = pkg.LocalAuth || pkg.default?.LocalAuth;
@@ -59,6 +60,7 @@ export class WhatsAppSession {
     this._processingQueue = false;
     this._queueWorkerTimer = null;
     this._queueProcessing = false;
+    this.stealth = new Stealth(config.stealth);
   }
 
   get accountLabel() {
@@ -113,9 +115,18 @@ export class WhatsAppSession {
   }
 
   async sendFromQueue(queueId, phone, message) {
+    const check = await this.stealth.beforeSend(phone);
+    if (!check.allowed) {
+      if (check.reason === "DAILY_LIMIT" || check.reason === "CONTACT_WINDOW") {
+        await queue.revertToPending(queueId);
+        this._addLog("warn", check.message, { to: phone, queueId });
+      }
+      return { success: false, code: check.reason, error: check.message };
+    }
     const result = await this._doSend(phone, message);
     if (result.success) {
       await queue.complete(queueId);
+      this.stealth.afterSend(phone);
       this.storage?.addMessage({ to: phone, status: "sent", source: "api", account: this.index, metadata: JSON.stringify({ queueId }) });
     } else if (result.code === "RATE_LIMIT") {
       await queue.revertToPending(queueId);
@@ -194,6 +205,7 @@ export class WhatsAppSession {
 
   async _tryDequeue() {
     if (this._queueProcessing || !this.isReady() || this._destroyed) return;
+    if (this.stealth.enabled && !this.stealth.scheduler.isWithinBusinessHours()) return;
     this._queueProcessing = true;
     try {
       const now = Date.now();

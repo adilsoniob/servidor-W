@@ -23,4 +23,13 @@ export const config = {
   sessionFolder: process.env.SESSION_FOLDER || "./data/session",
   // Número máximo de contas simultâneas
   maxAccounts: parseInt(process.env.MAX_ACCOUNTS || "1", 10),
+  // Stealth: proteção anti-bloqueio (desligado por padrão)
+  stealth: {
+    enabled: process.env.STEALTH_ENABLED === "true",
+    variableDelay: { enabled: true, min: 4000, max: 14000 },
+    randomPauses: { enabled: true, every: 5, minSec: 15, maxSec: 120 },
+    businessHours: { enabled: true, start: 8, end: 21, timezone: "America/Sao_Paulo" },
+    dailyLimit: { enabled: true, max: 80 },
+    contactWindow: { enabled: true, hours: 24 },
+  },
 };
