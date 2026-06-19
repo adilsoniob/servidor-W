@@ -6,6 +6,7 @@ import { log } from "./logger.js";
 import { createApp } from "./app.js";
 import { WhatsAppService } from "./services/whatsapp.js";
 import { Storage } from "./services/storage.js";
+import { closeDb } from "./services/queue.js";
 
 if (!config.apiKey) {
   log.error("WHATSAPP_API_KEY não configurada. Saindo.");
@@ -44,6 +45,7 @@ function shutdown(signal) {
   log.info(`Sinal ${signal} recebido, encerrando...`);
   server.close(() => log.info("HTTP server fechado"));
   whatsapp.destroy();
+  closeDb();
   setTimeout(() => process.exit(0), 10000).unref();
 }
 

@@ -10,6 +10,8 @@ import { reconnectRouter } from "./routes/reconnect.js";
 import { disconnectRouter } from "./routes/disconnect.js";
 import { qrPageRouter } from "./routes/qr-page.js";
 import { createAdminRouter } from "./routes/admin.js";
+import { createQueueRouter } from "./routes/queue.js";
+import { createDiagnosticsRouter } from "./routes/diagnostics.js";
 
 export function createApp(whatsapp) {
   const app = express();
@@ -33,6 +35,12 @@ export function createApp(whatsapp) {
   app.use("/api/send-message", authMiddleware, tracker, sendMessageRouter);
   app.use("/api/whatsapp/reconnect", authMiddleware, tracker, reconnectRouter);
   app.use("/api/whatsapp/disconnect", authMiddleware, tracker, disconnectRouter);
+
+  // Queue management API
+  app.use("/api/queue", createQueueRouter(authMiddleware, tracker));
+
+  // Diagnostics (autenticada)
+  app.use("/api/diag", createDiagnosticsRouter(authMiddleware));
 
   // Multi-account routes (autenticadas)
   app.post("/api/account/:index/connect", authMiddleware, tracker, (req, res) => {

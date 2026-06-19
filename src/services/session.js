@@ -1,6 +1,7 @@
 import pkg from "whatsapp-web.js";
 import qrcode from "qrcode";
 import { log } from "../logger.js";
+import * as queue from "./queue.js";
 
 const Client = pkg.Client || pkg.default?.Client;
 const LocalAuth = pkg.LocalAuth || pkg.default?.LocalAuth;
@@ -56,6 +57,8 @@ export class WhatsAppSession {
     this._destroyed = false;
     this._msgQueue = [];
     this._processingQueue = false;
+    this._queueWorkerTimer = null;
+    this._queueProcessing = false;
   }
 
   get accountLabel() {
@@ -109,6 +112,61 @@ export class WhatsAppSession {
     });
   }
 
+  async sendFromQueue(queueId, phone, message) {
+    const result = await this._doSend(phone, message);
+    if (result.success) {
+      await queue.complete(queueId);
+      this.storage?.addMessage({ to: phone, status: "sent", source: "api", account: this.index, metadata: JSON.stringify({ queueId }) });
+    } else if (result.code === "RATE_LIMIT") {
+      await queue.revertToPending(queueId);
+    } else {
+      await queue.fail(queueId, result.error || "SEND_ERROR");
+      this.storage?.addMessage({ to: phone, status: "failed", source: "api", account: this.index, metadata: JSON.stringify({ queueId, error: result.error }) });
+    }
+    return result;
+  }
+
+  async _doSend(cleanNumber, message) {
+    const now = Date.now();
+    RATE.sent = RATE.sent.filter((t) => now - t < 60000);
+    if (RATE.sent.length >= RATE.maxPerMinute) {
+      return this._fail("RATE_LIMIT", `Limite de ${RATE.maxPerMinute} mensagens/minuto atingido.`);
+    }
+    const wait = RATE.intervalMs - (now - RATE.lastSend);
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+
+    const chatId = `${cleanNumber}@c.us`;
+    try {
+      const registered = await withTimeout(
+        this.client.getNumberId(cleanNumber),
+        5000,
+        "getNumberId"
+      );
+      if (registered === null) {
+        this._addLog("warn", "Número não registrado no WhatsApp", { to: cleanNumber });
+        return this._fail("NOT_REGISTERED", "Número não registrado no WhatsApp.", cleanNumber);
+      }
+
+      const sent = await withTimeout(
+        this.client.sendMessage(chatId, message),
+        this.config.sendTimeoutMs,
+        "sendMessage"
+      );
+
+      this.lastSendAt = new Date().toISOString();
+      RATE.lastSend = Date.now();
+      RATE.sent.push(RATE.lastSend);
+      const messageId = sent?.id?._serialized || sent?.id || null;
+      log.info(`[${this.accountLabel}] Mensagem enviada`, { to: chatId, messageId });
+      this._addLog("message_sent", `Mensagem enviada para ${cleanNumber}`, { to: cleanNumber, messageId });
+      this.emit("admin:message", { to: cleanNumber, status: "sent", account: this.index });
+      return { success: true, message: "Mensagem enviada com sucesso.", to: chatId, messageId };
+    } catch (err) {
+      this._addLog("message_error", `Erro ao enviar para ${cleanNumber}: ${err.message}`, { to: cleanNumber, error: err.message });
+      return this._fail("SEND_ERROR", err.message || String(err), cleanNumber);
+    }
+  }
+
   async _processQueue() {
     if (this._processingQueue || this._msgQueue.length === 0) return;
     this._processingQueue = true;
@@ -116,51 +174,51 @@ export class WhatsAppSession {
     while (this._msgQueue.length > 0) {
       const item = this._msgQueue.shift();
       const { cleanNumber, message, resolve } = item;
-
-      const now = Date.now();
-      RATE.sent = RATE.sent.filter((t) => now - t < 60000);
-      if (RATE.sent.length >= RATE.maxPerMinute) {
-        resolve(this._fail("RATE_LIMIT", `Limite de ${RATE.maxPerMinute} mensagens/minuto atingido.`));
-        continue;
+      const result = await this._doSend(cleanNumber, message);
+      if (result.success) {
+        this.storage?.addMessage({ to: cleanNumber, status: "sent", source: "api", id: result.messageId, account: this.index });
       }
-      const wait = RATE.intervalMs - (now - RATE.lastSend);
-      if (wait > 0) await new Promise((r) => setTimeout(r, wait));
-
-      const chatId = `${cleanNumber}@c.us`;
-      try {
-        const registered = await withTimeout(
-          this.client.getNumberId(cleanNumber),
-          5000,
-          "getNumberId"
-        );
-        if (registered === null) {
-          this._addLog("warn", "Número não registrado no WhatsApp", { to: cleanNumber });
-          resolve(this._fail("NOT_REGISTERED", "Número não registrado no WhatsApp.", cleanNumber));
-          continue;
-        }
-
-        const sent = await withTimeout(
-          this.client.sendMessage(chatId, message),
-          this.config.sendTimeoutMs,
-          "sendMessage"
-        );
-
-        this.lastSendAt = new Date().toISOString();
-        RATE.lastSend = Date.now();
-        RATE.sent.push(RATE.lastSend);
-        const messageId = sent?.id?._serialized || sent?.id || null;
-        log.info(`[${this.accountLabel}] Mensagem enviada`, { to: chatId, messageId });
-        this.storage?.addMessage({ to: cleanNumber, status: "sent", source: "api", id: messageId, account: this.index });
-        this._addLog("message_sent", `Mensagem enviada para ${cleanNumber}`, { to: cleanNumber, messageId });
-        this.emit("admin:message", { to: cleanNumber, status: "sent", account: this.index });
-        resolve({ success: true, message: "Mensagem enviada com sucesso.", to: chatId, messageId });
-      } catch (err) {
-        this._addLog("message_error", `Erro ao enviar para ${cleanNumber}: ${err.message}`, { to: cleanNumber, error: err.message });
-        resolve(this._fail("SEND_ERROR", err.message || String(err), cleanNumber));
-      }
+      resolve(result);
     }
 
     this._processingQueue = false;
+  }
+
+  async _tryDequeue() {
+    if (this._queueProcessing || !this.isReady() || this._destroyed) return;
+    this._queueProcessing = true;
+    try {
+      const now = Date.now();
+      const recent = RATE.sent.filter((t) => now - t < 60000);
+      if (recent.length >= RATE.maxPerMinute) {
+        const oldest = recent[0] || 0;
+        const wait = 60000 - (now - oldest);
+        if (wait > 1000) return;
+      }
+      const items = await queue.dequeue(1);
+      for (const item of items) {
+        await this.sendFromQueue(item.id, item.phone, item.message);
+      }
+    } catch (err) {
+      log.error(`[${this.accountLabel}] Erro no worker da fila`, { error: err.message });
+    } finally {
+      this._queueProcessing = false;
+    }
+  }
+
+  _startQueueWorker() {
+    if (this._queueWorkerTimer) return;
+    const POLL_INTERVAL = 3000;
+    this._queueWorkerTimer = setInterval(() => this._tryDequeue(), POLL_INTERVAL);
+    this._tryDequeue();
+    log.info(`[${this.accountLabel}] Worker da fila iniciado (polling a cada ${POLL_INTERVAL}ms)`);
+  }
+
+  _stopQueueWorker() {
+    if (this._queueWorkerTimer) {
+      clearInterval(this._queueWorkerTimer);
+      this._queueWorkerTimer = null;
+    }
   }
 
   async initialize() {
@@ -266,6 +324,7 @@ export class WhatsAppSession {
       this.emit("connected");
       log.info(`[${this.accountLabel}] WhatsApp conectado e pronto`);
       this._addLog("connected", "WhatsApp conectado e pronto");
+      this._startQueueWorker();
 
       try {
         const info = client.info;
@@ -296,6 +355,7 @@ export class WhatsAppSession {
 
     client.on("disconnected", (reason) => {
       this.disconnectedAt = new Date().toISOString();
+      this._stopQueueWorker();
       this._setStatus(STATES.OFFLINE, `Desconectado: ${reason}`);
       this.emit("disconnected", { reason, account: this.index });
       log.warn(`[${this.accountLabel}] WhatsApp desconectado`, { reason });
