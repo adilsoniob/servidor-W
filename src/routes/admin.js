@@ -73,22 +73,13 @@ const ADMIN_HTML = `<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WhatsApp Server | Painel</title>
-<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 <style>
-:root {
-  --bg: #0b1120; --card: #151f35; --sidebar: #111b2e; --border: #1e2d4a;
-  --text: #e2e8f0; --muted: #7e8ea8; --accent: #3b82f6;
-  --green: #22c55e; --green-bg: rgba(34,197,94,0.12);
-  --yellow: #eab308; --yellow-bg: rgba(234,179,8,0.12);
-  --red: #ef4444; --red-bg: rgba(239,68,68,0.12);
-  --radius: 12px; --radius-sm: 8px;
-}
 *{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0b1120;--card:#151f35;--sidebar:#111b2e;--border:#1e2d4a;--text:#e2e8f0;--muted:#7e8ea8;--accent:#3b82f6;--green:#22c55e;--green-bg:rgba(34,197,94,0.12);--yellow:#eab308;--yellow-bg:rgba(234,179,8,0.12);--red:#ef4444;--red-bg:rgba(239,68,68,0.12);--radius:12px;--radius-sm:8px}
 body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.5}
 .layout{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
 .sidebar{background:var(--sidebar);padding:1.25rem;border-right:1px solid var(--border);overflow-y:auto;position:sticky;top:0;height:100vh}
-.sidebar .logo{font-size:1rem;font-weight:700;margin-bottom:1.5rem;display:flex;align-items:center;gap:.5rem;letter-spacing:-.02em}
-.sidebar .logo svg{flex-shrink:0}
+.sidebar .logo{font-size:1rem;font-weight:700;margin-bottom:1.5rem;display:flex;align-items:center;gap:.5rem}
 .sidebar h2{font-size:.65rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:1.25rem 0 .6rem;font-weight:600}
 .sidebar .stat{display:flex;justify-content:space-between;padding:.35rem 0;font-size:.78rem}
 .sidebar .stat+.stat{border-top:1px solid var(--border)}
@@ -101,7 +92,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 .topbar{display:flex;align-items:center;gap:.65rem;padding:.65rem 1.25rem;background:var(--card);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
 .topbar h1{font-size:.9rem;font-weight:600;flex:1}
 .uptime{font-size:.7rem;color:var(--muted)}
-.status-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;transition:all .3s}
+.status-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
 .status-dot--connected{background:var(--green);box-shadow:0 0 10px rgba(34,197,94,.35)}
 .status-dot--awaiting_qr,.status-dot--reconnecting{background:var(--yellow);box-shadow:0 0 10px rgba(234,179,8,.35)}
 .status-dot--offline,.status-dot--auth_failure,.status-dot--error{background:var(--red);box-shadow:0 0 10px rgba(239,68,68,.35)}
@@ -118,17 +109,14 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 .btn:hover{transform:translateY(-1px)}
 .btn:active{transform:translateY(0)}
 .btn-primary{background:var(--accent);color:#fff}
-.btn-primary:hover{box-shadow:0 3px 12px rgba(59,130,246,.3)}
 .btn-danger{background:var(--red);color:#fff}
-.btn-danger:hover{box-shadow:0 3px 12px rgba(239,68,68,.3)}
 .btn-warning{background:var(--yellow);color:#0f172a}
 .btn-success{background:var(--green);color:#0f172a}
 .btn-outline{background:transparent;border:1px solid var(--border);color:var(--muted)}
 .btn-outline:hover{border-color:var(--text);color:var(--text)}
 .btn-sm{padding:.25rem .55rem;font-size:.68rem}
-.btn-lg{padding:.5rem 1.2rem;font-size:.82rem}
 .btn:disabled{opacity:.5;cursor:not-allowed;transform:none!important}
-.table-wrap{max-height:360px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm)}
+.table-wrap{max-height:400px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm)}
 table{width:100%;border-collapse:collapse;font-size:.75rem}
 th{text-align:left;padding:.45rem .5rem;color:var(--muted);font-weight:600;font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;background:var(--bg);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:1}
 td{padding:.4rem .5rem;border-bottom:1px solid rgba(30,45,74,.4);font-size:.75rem}
@@ -144,22 +132,14 @@ tr:hover td{background:rgba(59,130,246,.04)}
 .filters input,.filters select{padding:.3rem .45rem;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:.72rem;outline:none}
 .filters input:focus,.filters select:focus{border-color:var(--accent)}
 .filters label{font-size:.7rem;color:var(--muted);display:inline-flex;align-items:center;gap:.3rem}
-.msg-count{font-size:.68rem;color:var(--muted);margin-left:auto}
 .empty{color:var(--muted);font-size:.75rem;padding:1.25rem 0;text-align:center}
-
-/* Dashboard KPIs */
 .kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.65rem}
 .kpi{padding:.75rem;border-radius:var(--radius-sm);border:1px solid var(--border);text-align:center}
 .kpi .kpi-value{font-size:1.4rem;font-weight:700;letter-spacing:-.03em}
 .kpi .kpi-label{font-size:.65rem;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.05em}
-.kpi-green .kpi-value{color:var(--green)}
-.kpi-yellow .kpi-value{color:var(--yellow)}
-.kpi-red .kpi-value{color:var(--red)}
-.kpi-blue .kpi-value{color:var(--accent)}
-
-/* Accounts grid */
+.kpi-green .kpi-value{color:var(--green)}.kpi-yellow .kpi-value{color:var(--yellow)}.kpi-red .kpi-value{color:var(--red)}.kpi-blue .kpi-value{color:var(--accent)}
 .accounts-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.85rem;flex-wrap:wrap;gap:.5rem}
-.accounts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:.7rem}
+.accounts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:.7rem}
 .account-card{background:var(--bg);border-radius:var(--radius);padding:.85rem;border:1px solid var(--border)}
 .account-card .ac-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem}
 .account-card .ac-hd .ac-label{font-weight:600;font-size:.82rem}
@@ -168,182 +148,155 @@ tr:hover td{background:rgba(59,130,246,.04)}
 .account-card .ac-qr img{width:140px;height:140px;border-radius:8px;border:1px solid var(--border);background:#fff;padding:5px}
 .account-card .ac-qr p{font-size:.62rem;color:var(--muted);margin-top:3px}
 .account-card .ac-actions{display:flex;gap:.25rem;flex-wrap:wrap;margin-top:.5rem}
-.profile-info strong{font-size:.8rem}
-.profile-info small{display:block;color:var(--muted);font-size:.72rem}
-.error-text{color:var(--red);font-size:.72rem}
-
-/* Integrations */
+.queue-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:.65rem;margin-bottom:.85rem}
+.queue-card{padding:.65rem;border-radius:var(--radius-sm);border:1px solid var(--border);text-align:center}
+.queue-card .qty{font-size:1.3rem;font-weight:700}
+.queue-card .qlabel{font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.queue-list{max-height:350px;overflow-y:auto}
+.qitem{display:flex;align-items:center;gap:.5rem;padding:.35rem .5rem;border-bottom:1px solid rgba(30,45,74,.4);font-size:.72rem}
+.qitem:hover{background:rgba(59,130,246,.04)}
+.qitem .qphone{font-weight:600;font-family:monospace;min-width:100px;font-size:.75rem}
+.qitem .qmsg{color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qitem .qretry{color:var(--muted);min-width:30px;text-align:right;font-size:.65rem}
 .int-item{display:flex;justify-content:space-between;align-items:center;padding:.45rem .5rem;border-bottom:1px solid rgba(30,45,74,.4);font-size:.75rem}
 .int-item:last-child{border-bottom:none}
 .int-item:hover{background:rgba(59,130,246,.04)}
-.int-name{font-weight:600}
-.int-url{color:var(--muted);font-size:.7rem}
+.int-name{font-weight:600}.int-url{color:var(--muted);font-size:.7rem}
 .int-meta{text-align:right;font-size:.68rem;color:var(--muted)}
-
-/* Logs */
 .log-item{display:flex;gap:.5rem;padding:.35rem .5rem;border-bottom:1px solid rgba(30,45,74,.4);font-size:.72rem;align-items:center}
 .log-item:last-child{border-bottom:none}
 .log-item:hover{background:rgba(59,130,246,.04)}
 .log-time{color:var(--muted);flex-shrink:0;font-family:monospace;font-size:.65rem;min-width:130px}
-.log-ac{font-weight:600;flex-shrink:0;min-width:50px;color:var(--accent);font-size:.68rem}
+.log-ac{font-weight:600;flex-shrink:0;width:40px;color:var(--accent);font-size:.68rem}
 .log-event{font-weight:600;flex-shrink:0;min-width:90px;font-size:.68rem}
 .log-desc{color:var(--muted)}
-
-/* Message report */
-.report-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.65rem;margin-bottom:.85rem}
+.report-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:.65rem;margin-bottom:.85rem}
 .report-card{padding:.7rem;border-radius:var(--radius-sm);border:1px solid var(--border);text-align:center}
 .report-card .rp-period{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
 .report-card .rp-total{font-size:1.5rem;font-weight:700;margin:4px 0}
 .report-card .rp-detail{font-size:.65rem;color:var(--muted)}
 .report-card .rp-detail span{display:inline-block;margin:0 4px}
-.rp-green{color:var(--green)}
-.rp-yellow{color:var(--yellow)}
-.rp-red{color:var(--red)}
-
-/* QR Modal */
-.modal-overlay{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;animation:fadeIn .2s ease}
-.modal-overlay.active{display:flex}
-.modal{background:var(--card);border-radius:var(--radius);padding:1.5rem;border:1px solid var(--border);max-width:360px;width:90%;text-align:center;animation:scaleIn .2s ease}
-.modal h3{font-size:.9rem;margin-bottom:.25rem;text-transform:none;letter-spacing:0;color:var(--text)}
-.modal p.sub{font-size:.75rem;color:var(--muted);margin-bottom:1rem}
-.modal .qr-box{background:var(--bg);border-radius:var(--radius-sm);padding:1rem;border:1px solid var(--border);margin-bottom:.75rem}
-.modal .qr-box img{width:200px;height:200px;border-radius:8px;background:#fff;padding:6px}
-.modal .qr-timer{font-size:.7rem;color:var(--muted);margin-bottom:.75rem;font-family:monospace}
-.modal .modal-actions{display:flex;gap:.5rem;justify-content:center}
-@keyframes fadeIn{from{opacity:0}to{opacity:1}}
-@keyframes scaleIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
-
-/* Progress bar */
-.progress-bar{height:3px;background:var(--border);border-radius:2px;margin-top:.5rem;overflow:hidden}
-.progress-bar .fill{height:100%;background:var(--accent);border-radius:2px;animation:shrink 60s linear forwards}
-@keyframes shrink{from{width:100%}to{width:0%}}
-
-/* Contact item */
 .contact-item{display:flex;justify-content:space-between;align-items:center;padding:.4rem .5rem;border-bottom:1px solid rgba(30,45,74,.4);font-size:.75rem}
 .contact-item:last-child{border-bottom:none}
 .contact-item:hover{background:rgba(59,130,246,.04)}
 .contact-phone{font-weight:600;font-family:monospace;font-size:.78rem}
-
-/* Toast */
+.profile-info strong{font-size:.8rem}.profile-info small{display:block;color:var(--muted);font-size:.72rem}
+.error-text{color:var(--red);font-size:.72rem}
 .toast{position:fixed;bottom:1.25rem;right:1.25rem;z-index:999;display:flex;flex-direction:column;gap:.4rem;pointer-events:none}
 .toast-item{padding:.55rem .9rem;border-radius:var(--radius-sm);font-size:.75rem;font-weight:500;pointer-events:auto;animation:slideIn .25s ease;box-shadow:0 6px 20px rgba(0,0,0,.35)}
 .toast-success{background:#065f46;color:#a7f3d0;border:1px solid #059669}
 .toast-error{background:#7f1d1d;color:#fecaca;border:1px solid #dc2626}
 .toast-info{background:#1e3a5f;color:#bfdbfe;border:1px solid #2563eb}
 @keyframes slideIn{from{opacity:0;transform:translateX(15px)}to{opacity:1;transform:translateX(0)}}
-@media(max-width:768px){
-  .layout{grid-template-columns:1fr}.sidebar{display:none}
-  .content{padding:.85rem}.kpis{grid-template-columns:repeat(2,1fr)}
-  .accounts-grid{grid-template-columns:1fr}
-  .report-grid{grid-template-columns:1fr}
-  .filters{flex-direction:column;align-items:stretch}.msg-count{margin-left:0}
-  .log-time{min-width:auto}
-}
+.modal-overlay{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center}
+.modal-overlay.active{display:flex}
+.modal{background:var(--card);border-radius:var(--radius);padding:1.5rem;border:1px solid var(--border);max-width:360px;width:90%;text-align:center}
+.modal h3{font-size:.9rem;margin-bottom:.25rem;text-transform:none;letter-spacing:0;color:var(--text)}
+.modal p.sub{font-size:.75rem;color:var(--muted);margin-bottom:1rem}
+.modal .qr-box{background:var(--bg);border-radius:var(--radius-sm);padding:1rem;border:1px solid var(--border);margin-bottom:.75rem}
+.modal .qr-box img{width:200px;height:200px;border-radius:8px;background:#fff;padding:6px}
+.modal .qr-timer{font-size:.7rem;color:var(--muted);margin-bottom:.75rem;font-family:monospace}
+.modal .modal-actions{display:flex;gap:.5rem;justify-content:center}
+@media(max-width:768px){.layout{grid-template-columns:1fr}.sidebar{display:none}.content{padding:.85rem}.kpis{grid-template-columns:repeat(2,1fr)}.accounts-grid{grid-template-columns:1fr}.queue-grid{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
 <body>
 <div class="layout">
-  <aside class="sidebar">
+  <aside class="sidebar" id="sidebar">
     <div class="logo">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
       WhatsApp Server
     </div>
     <h2>Dashboard</h2>
-    <div class="stat" id="sRowAcc"><span class="stat-label">Contas</span><span class="stat-value" id="sTotalAcc">0</span></div>
-    <div class="stat" id="sRowConnected"><span class="stat-label">Conectadas</span><span class="stat-value" id="sConnectedAcc">0</span></div>
+    <div class="stat"><span class="stat-label">Contas</span><span class="stat-value" id="sTotalAcc">0</span></div>
+    <div class="stat"><span class="stat-label">Conectadas</span><span class="stat-value" id="sConnectedAcc">0</span></div>
     <div class="stat"><span class="stat-label">Mensagens (mês)</span><span class="stat-value" id="sMonthMsg">0</span></div>
     <div class="stat"><span class="stat-label">Integrações</span><span class="stat-value" id="sIntegracoes">0</span></div>
+    <div class="stat"><span class="stat-label">Fila</span><span class="stat-value" id="sQueuePend">0</span></div>
     <h2>Contas</h2>
     <div id="sidebarAccounts"></div>
     <h2>Ações</h2>
     <div style="display:flex;flex-direction:column;gap:.3rem">
       <button class="btn btn-primary btn-sm" onclick="addAccount()">+ Adicionar Conta</button>
-      <button class="btn btn-outline btn-sm" onclick="fetchDashboard()">Atualizar</button>
+      <button class="btn btn-outline btn-sm" onclick="fullRefresh()">Atualizar</button>
     </div>
   </aside>
-
   <div class="main">
     <div class="topbar">
       <span class="status-dot status-dot--starting" id="topStatusDot"></span>
       <h1 id="topStatusText">Carregando...</h1>
       <span class="uptime" id="topUptime"></span>
     </div>
-
     <div class="content">
-
-      <!-- KPIs -->
-      <div class="card">
-        <h3>Indicadores</h3>
-        <div class="kpis" id="kpiGrid"></div>
-      </div>
-
-      <!-- Tabs -->
       <div class="card">
         <div class="tabs" id="mainTabs">
-          <div class="tab active" data-tab="contas">Contas</div>
+          <div class="tab active" data-tab="dashboard">Dashboard</div>
+          <div class="tab" data-tab="contas">Contas</div>
+          <div class="tab" data-tab="fila">Fila</div>
           <div class="tab" data-tab="mensagens">Mensagens</div>
-          <div class="tab" data-tab="integracoes">Integrações</div>
           <div class="tab" data-tab="contatos">Contatos</div>
           <div class="tab" data-tab="logs">Logs</div>
           <div class="tab" data-tab="relatorios">Relatórios</div>
         </div>
-
-        <!-- TAB: Contas -->
-        <div class="tab-content active" id="tabContas">
+        <!-- Dashboard -->
+        <div class="tab-content active" id="tabDashboard">
+          <div class="kpis" id="kpiGrid"></div>
+        </div>
+        <!-- Contas -->
+        <div class="tab-content" id="tabContas">
           <div class="accounts-header">
             <span style="font-size:.75rem;color:var(--muted)" id="accSummary"></span>
             <button class="btn btn-primary btn-sm" onclick="addAccount()">+ Adicionar Conta</button>
           </div>
           <div class="accounts-grid" id="accountsGrid"></div>
         </div>
-
-        <!-- TAB: Mensagens -->
+        <!-- Fila -->
+        <div class="tab-content" id="tabFila">
+          <div class="queue-grid" id="queueGrid"></div>
+          <div style="display:flex;gap:.3rem;flex-wrap:wrap;margin-bottom:.65rem">
+            <button class="btn btn-warning btn-sm" onclick="retryAll()">Reenfileirar Falhas</button>
+            <button class="btn btn-outline btn-sm" onclick="clearCompleted()">Limpar Completados</button>
+            <button class="btn btn-outline btn-sm" onclick="loadQueue()">Atualizar</button>
+            <span style="font-size:.68rem;color:var(--muted);margin-left:auto" id="queueCount"></span>
+          </div>
+          <div class="queue-list" id="queueList"></div>
+        </div>
+        <!-- Mensagens -->
         <div class="tab-content" id="tabMensagens">
           <div class="filters">
-            <label>Conta: <select id="filterMsgAccount"><option value="">Todas</option></select></label>
-            <label>Status: <select id="filterMsgStatus"><option value="">Todos</option><option value="sent">Enviado</option><option value="delivered">Entregue</option><option value="received">Recebida</option><option value="read">Lida</option><option value="failed">Falhou</option></select></label>
+            <label>Status: <select id="filterMsgStatus"><option value="">Todos</option><option value="sent">Enviado</option><option value="delivered">Entregue</option><option value="failed">Falhou</option></select></label>
             <label>Número: <input id="filterMsgPhone" placeholder="559999999999" style="width:110px"></label>
             <button class="btn btn-primary btn-sm" onclick="loadMessages()">Filtrar</button>
-            <span class="msg-count" id="msgCount"></span>
+            <span style="font-size:.68rem;color:var(--muted);margin-left:auto" id="msgCount"></span>
           </div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Data/Hora</th><th>Número</th><th>Conta</th><th>Status</th><th>Origem</th></tr></thead>
-              <tbody id="messagesBody"><tr><td colspan="5" class="empty">Carregando...</td></tr></tbody>
+              <thead><tr><th>Data/Hora</th><th>Número</th><th>Status</th><th>Origem</th></tr></thead>
+              <tbody id="messagesBody"><tr><td colspan="4" class="empty">Carregando...</td></tr></tbody>
             </table>
           </div>
         </div>
-
-        <!-- TAB: Integrações -->
-        <div class="tab-content" id="tabIntegracoes">
-          <div style="margin-bottom:.65rem;font-size:.75rem;color:var(--muted)" id="intSummary"></div>
-          <div style="border:1px solid var(--border);border-radius:var(--radius-sm)" id="integrationsBody"></div>
-        </div>
-
-        <!-- TAB: Contatos -->
+        <!-- Contatos -->
         <div class="tab-content" id="tabContatos">
           <div id="contactsBody"></div>
         </div>
-
-        <!-- TAB: Logs -->
+        <!-- Logs -->
         <div class="tab-content" id="tabLogs">
           <div class="filters">
-            <label>Conta: <select id="filterLogAccount"><option value="">Todas</option></select></label>
             <label>Evento: <input id="filterLogEvent" placeholder="connected, message_sent..." style="width:130px"></label>
             <button class="btn btn-primary btn-sm" onclick="loadLogs()">Filtrar</button>
-            <span class="msg-count" id="logCount"></span>
+            <span style="font-size:.68rem;color:var(--muted);margin-left:auto" id="logCount"></span>
           </div>
           <div class="table-wrap"><div id="logsBody"></div></div>
         </div>
-
-        <!-- TAB: Relatórios -->
+        <!-- Relatórios -->
         <div class="tab-content" id="tabRelatorios">
           <div class="report-grid" id="reportGrid"></div>
           <div style="margin-bottom:.5rem;font-size:.75rem;color:var(--muted)">Últimas mensagens</div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Data</th><th>Número</th><th>Conta</th><th>Status</th></tr></thead>
-              <tbody id="reportBody"><tr><td colspan="4" class="empty">Carregando...</td></tr></tbody>
+              <thead><tr><th>Data</th><th>Número</th><th>Status</th></tr></thead>
+              <tbody id="reportBody"><tr><td colspan="3" class="empty">Carregando...</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -351,436 +304,324 @@ tr:hover td{background:rgba(59,130,246,.04)}
     </div>
   </div>
 </div>
-
 <!-- QR Modal -->
 <div class="modal-overlay" id="qrModal">
   <div class="modal">
     <h3 id="qrModalTitle">Conectando Conta</h3>
     <p class="sub">Escaneie o QR Code com seu WhatsApp</p>
     <div class="qr-box">
-      <img id="qrModalImg" src="" alt="QR Code">
+      <img id="qrModalImg" src="" alt="QR Code" style="display:none">
       <div id="qrModalPlaceholder" style="width:200px;height:200px;border-radius:8px;background:var(--bg);border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;margin:auto;font-size:.7rem;color:var(--muted)">Aguardando QR Code...</div>
-      <div class="progress-bar" id="qrProgressBar"><div class="fill"></div></div>
     </div>
     <div class="qr-timer" id="qrTimer"></div>
     <div class="modal-actions">
-      <button class="btn btn-warning btn-sm" id="qrRefreshBtn" onclick="refreshQR()">Atualizar QR</button>
+      <button class="btn btn-warning btn-sm" onclick="refreshQR()">Atualizar QR</button>
       <button class="btn btn-danger btn-sm" onclick="cancelQR()">Cancelar</button>
     </div>
   </div>
 </div>
-
 <div class="toast" id="toastContainer"></div>
-
 <script>
-var socket = io({ transports: ["websocket","polling"], reconnection: true });
+(function(){
 var qrModalIndex = -1;
-var qrTimerInterval = null;
-var qrStartTime = null;
-var qrRefreshTimer = null;
+var qrTimer = null;
 
-// ---- Toast ----
 function toast(msg, type) {
   var el = document.createElement("div");
-  el.className = "toast-item toast-" + type;
+  el.className = "toast-item toast-" + (type || "info");
   el.textContent = msg;
   document.getElementById("toastContainer").appendChild(el);
-  setTimeout(function() { el.style.opacity = "0"; el.style.transition = "opacity .3s"; setTimeout(function() { el.remove(); }, 300); }, 3500);
+  setTimeout(function(){ el.style.opacity = "0"; el.style.transition = "opacity .3s"; setTimeout(function(){ el.remove() }, 300) }, 3500);
 }
 
-// ---- Helpers ----
-function statusDot(state) { return 'status-dot--' + (state || 'starting'); }
-function statusLabel(state) {
-  var m = { connected:"Conectado", awaiting_qr:"Aguardando QR", reconnecting:"Reconectando", starting:"Iniciando", offline:"Desconectado", auth_failure:"Falha Auth", error:"Erro" };
-  return m[state] || state;
+function q(s) { return document.querySelector(s) }
+function qa(s) { return document.querySelectorAll(s) }
+function byId(s) { return document.getElementById(s) }
+
+function api(url, opts) {
+  opts = opts || {};
+  var headers = { "Content-Type": "application/json" };
+  if (opts.body) opts.body = JSON.stringify(opts.body);
+  opts.headers = headers;
+  return fetch(url, opts).then(function(r) { return r.json() }).catch(function() { return { success: false, error: "Erro de conexão" } });
 }
-function statusTag(state) {
-  var m = { connected:"success", awaiting_qr:"warning", reconnecting:"warning", starting:"info", offline:"error", auth_failure:"error", error:"error" };
-  return 'tag-' + (m[state] || 'info');
-}
-function esc(s) { if (!s) return ''; var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-function fmt(iso) { return iso ? new Date(iso).toLocaleString("pt-BR") : '---'; }
-function fmtShort(iso) { if (!iso) return '---'; var d = new Date(iso); return d.toLocaleDateString("pt-BR") + ' ' + d.toLocaleTimeString("pt-BR"); }
+
+function esc(s) { if (!s) return ""; var d = document.createElement("div"); d.textContent = s; return d.innerHTML }
+
+function statusDot(s) { return "status-dot--" + (s || "starting") }
+function statusLabel(s) { return ({ connected:"Conectado", awaiting_qr:"Aguardando QR", reconnecting:"Reconectando", starting:"Iniciando", offline:"Desconectado", auth_failure:"Falha Auth", error:"Erro" })[s] || s }
+function statusTag(s) { return ({ connected:"success", awaiting_qr:"warning", reconnecting:"warning", starting:"info", offline:"error", auth_failure:"error", error:"error" })[s] || "info" }
+function fmt(iso) { return iso ? new Date(iso).toLocaleString("pt-BR") : "---" }
 function fmtPhone(p) {
-  if (!p) return '---';
-  var d = String(p).replace(/\D/g, '');
-  if (d.startsWith('55')) d = d.slice(2);
-  if (d.length === 11) return '+55 (' + d.slice(0,2) + ') ' + d.slice(2,7) + '-' + d.slice(7);
-  if (d.length === 10) return '+55 (' + d.slice(0,2) + ') ' + d.slice(2,6) + '-' + d.slice(6);
-  return '+55 ' + d;
+  if (!p) return "---"; p = String(p).replace(/\D/g, "");
+  if (p.startsWith("55")) p = p.slice(2);
+  if (p.length === 11) return "+55 (" + p.slice(0,2) + ") " + p.slice(2,7) + "-" + p.slice(7);
+  if (p.length === 10) return "+55 (" + p.slice(0,2) + ") " + p.slice(2,6) + "-" + p.slice(6);
+  return "+55 " + p;
 }
 
-// ---- KPI Render ----
 function renderKPI(data) {
-  var grid = document.getElementById("kpiGrid");
   var acc = data.accounts || { total:0, connected:0, offline:0 };
   var msgs = data.messages || {};
-  var allTime = msgs.allTime || {};
-  var byStatus = allTime.byStatus || {};
+  var bs = (msgs.allTime || {}).byStatus || {};
   var integ = data.integrations || { total:0 };
-  var periods = msgs.periods || {};
-  var monthTotal = periods.month ? periods.month.total : 0;
-
-  grid.innerHTML =
-    '<div class="kpi kpi-green"><div class="kpi-value">' + acc.connected + '</div><div class="kpi-label">Contas Conectadas</div></div>' +
-    '<div class="kpi kpi-red"><div class="kpi-value">' + acc.offline + '</div><div class="kpi-label">Contas Offline</div></div>' +
-    '<div class="kpi kpi-blue"><div class="kpi-value">' + (byStatus.sent || 0) + '</div><div class="kpi-label">Mensagens Enviadas</div></div>' +
-    '<div class="kpi kpi-green"><div class="kpi-value">' + (byStatus.delivered || 0) + '</div><div class="kpi-label">Mensagens Entregues</div></div>' +
-    '<div class="kpi kpi-red"><div class="kpi-value">' + (byStatus.failed || 0) + '</div><div class="kpi-label">Falhas</div></div>' +
-    '<div class="kpi kpi-blue"><div class="kpi-value">' + integ.total + '</div><div class="kpi-label">Integrações</div></div>';
-
-  document.getElementById("sTotalAcc").textContent = acc.total;
-  document.getElementById("sConnectedAcc").textContent = acc.connected;
-  document.getElementById("sMonthMsg").textContent = monthTotal;
-  document.getElementById("sIntegracoes").textContent = integ.total;
+  var monthTotal = (msgs.periods || {}).month ? msgs.periods.month.total : 0;
+  byId("kpiGrid").innerHTML =
+    '<div class="kpi kpi-green"><div class="kpi-value">' + acc.connected + '</div><div class="kpi-label">Conectadas</div></div>' +
+    '<div class="kpi kpi-red"><div class="kpi-value">' + acc.offline + '</div><div class="kpi-label">Offline</div></div>' +
+    '<div class="kpi kpi-blue"><div class="kpi-value">' + (bs.sent||0) + '</div><div class="kpi-label">Enviadas</div></div>' +
+    '<div class="kpi kpi-green"><div class="kpi-value">' + (bs.delivered||0) + '</div><div class="kpi-label">Entregues</div></div>' +
+    '<div class="kpi kpi-red"><div class="kpi-value">' + (bs.failed||0) + '</div><div class="kpi-label">Falhas</div></div>' +
+    '<div class="kpi kpi-blue"><div class="kpi-value">' + monthTotal + '</div><div class="kpi-label">Este Mês</div></div>';
+  byId("sTotalAcc").textContent = acc.total;
+  byId("sConnectedAcc").textContent = acc.connected;
+  byId("sMonthMsg").textContent = monthTotal;
+  byId("sIntegracoes").textContent = integ.total;
 }
 
-// ---- Render Accounts ----
 function renderAccounts(accounts) {
-  var grid = document.getElementById("accountsGrid");
-  var connected = 0, offline = 0;
-  accounts.forEach(function(a) { if (a.state === "connected") connected++; else offline++; });
-  document.getElementById("accSummary").textContent = connected + " conectada(s) - " + offline + " offline";
-
-  var sb = document.getElementById("sidebarAccounts");
-  sb.innerHTML = accounts.map(function(a) {
+  var con = 0, off = 0;
+  accounts.forEach(function(a) { if (a.state === "connected") con++; else off++ });
+  byId("accSummary").textContent = con + " conectada(s) - " + off + " offline";
+  byId("sidebarAccounts").innerHTML = accounts.map(function(a) {
     return '<div class="sidebar-account"><span class="dot ' + statusDot(a.state) + '"></span><span class="name">' + a.label + '</span><span class="val">' + statusLabel(a.state) + '</span></div>';
   }).join("");
-
-  grid.innerHTML = accounts.map(function(a, i) {
-    var qrHtml = (a.qr && a.state === "awaiting_qr")
-      ? '<div class="ac-qr"><img src="' + a.qr + '" alt="QR"><p>Escaneie com seu WhatsApp</p></div>'
-      : '';
-
-    var profileHtml = a.profileName
-      ? '<div class="profile-info"><strong>' + esc(a.profileName) + '</strong><small>' + (a.profileNumber ? fmtPhone(a.profileNumber) : '') + '</small></div>'
-      : '';
-
-    var infoHtml = '';
-    if (a.connectedAt) infoHtml += '<div data-label="Conectado">Conectado: ' + fmt(a.connectedAt) + '</div>';
-    if (a.lastSendAt) infoHtml += '<div>Última atividade: ' + fmt(a.lastSendAt) + '</div>';
-    if (a.disconnectedAt && a.state !== "connected") infoHtml += '<div>Desconectado: ' + fmt(a.disconnectedAt) + '</div>';
-    if (a.reconnectAttempts) infoHtml += '<div>Tentativas: ' + a.reconnectAttempts + '</div>';
-    if (a.lastError) infoHtml += '<div class="error-text">Erro: ' + esc(a.lastError.error || '') + '</div>';
-
-    return '<div class="account-card">' +
-      '<div class="ac-hd"><span class="ac-label">' + a.label + '</span><span class="tag ' + statusTag(a.state) + '">' + statusLabel(a.state) + '</span></div>' +
-      (profileHtml ? '<div style="margin-bottom:.4rem">' + profileHtml + '</div>' : '') +
-      '<div class="ac-info">' + infoHtml + '</div>' +
-      qrHtml +
+  byId("accountsGrid").innerHTML = accounts.map(function(a, i) {
+    var qrHtml = (a.qr && a.state === "awaiting_qr") ? '<div class="ac-qr"><img src="' + a.qr + '" alt="QR"><p>Escaneie com seu WhatsApp</p></div>' : "";
+    var profileHtml = a.profileName ? '<div class="profile-info"><strong>' + esc(a.profileName) + '</strong><small>' + (a.profileNumber ? fmtPhone(a.profileNumber) : "") + "</small></div>" : "";
+    var info = "";
+    if (a.connectedAt) info += "<div>Conectado: " + fmt(a.connectedAt) + "</div>";
+    if (a.lastSendAt) info += "<div>Última atividade: " + fmt(a.lastSendAt) + "</div>";
+    if (a.lastError) info += '<div class="error-text">Erro: ' + esc(a.lastError.error || "") + "</div>";
+    return '<div class="account-card"><div class="ac-hd"><span class="ac-label">' + a.label + '</span><span class="tag ' + statusTag(a.state) + '">' + statusLabel(a.state) + '</span></div>' +
+      (profileHtml ? '<div style="margin-bottom:.4rem">' + profileHtml + "</div>" : "") +
+      '<div class="ac-info">' + info + "</div>" + qrHtml +
       '<div class="ac-actions">' +
-        '<button class="btn btn-primary btn-sm" onclick="showQR(' + i + ')">QR Code</button>' +
-        '<button class="btn btn-outline btn-sm" onclick="acConnect(' + i + ')">Conectar</button>' +
-        '<button class="btn btn-warning btn-sm" onclick="acReconnect(' + i + ')">Reconectar</button>' +
-        '<button class="btn btn-danger btn-sm" onclick="if(confirm(\'Desconectar ' + a.label + '?\'))acDisconnect(' + i + ')">Desconectar</button>' +
-        '<button class="btn btn-outline btn-sm" onclick="if(confirm(\'Remover sessão ' + a.label + '?\'))acRemove(' + i + ')">Remover</button>' +
-      '</div>' +
-    '</div>';
+        '<button class="btn btn-primary btn-sm" onclick="window._showQR(' + i + ')">QR Code</button>' +
+        '<button class="btn btn-outline btn-sm" onclick="window._acConnect(' + i + ')">Conectar</button>' +
+        '<button class="btn btn-warning btn-sm" onclick="window._acReconnect(' + i + ')">Reconectar</button>' +
+        '<button class="btn btn-danger btn-sm" onclick="if(confirm(\'Desconectar ' + a.label + '?\'))window._acDisconnect(' + i + ')">Desconectar</button>' +
+      "</div></div>";
   }).join("");
 }
 
-// ---- QR Modal ----
-function showQR(index) {
-  qrModalIndex = index;
-  document.getElementById("qrModalTitle").textContent = "Conta " + (index + 1);
-  document.getElementById("qrModalImg").style.display = "none";
-  document.getElementById("qrModalPlaceholder").style.display = "flex";
-  document.getElementById("qrRefreshBtn").disabled = false;
-  document.getElementById("qrModal").classList.add("active");
-  qrStartTime = Date.now();
-  updateQRTimer();
-  if (qrTimerInterval) clearInterval(qrTimerInterval);
-  qrTimerInterval = setInterval(updateQRTimer, 1000);
-  acConnect(index);
-}
-
-function updateQRTimer() {
-  if (!qrStartTime) return;
-  var elapsed = Math.floor((Date.now() - qrStartTime) / 1000);
-  var remaining = Math.max(0, 55 - elapsed);
-  var min = Math.floor(remaining / 60);
-  var sec = remaining % 60;
-  document.getElementById("qrTimer").textContent = "Renova em: " + (min < 10 ? "0" : "") + min + ":" + (sec < 10 ? "0" : "") + sec;
-  if (remaining <= 0) {
-    if (qrRefreshTimer) clearTimeout(qrRefreshTimer);
-    qrRefreshTimer = setTimeout(function() {
-      if (qrModalIndex >= 0) refreshQR();
-    }, 1000);
-  }
-}
-
-function refreshQR() {
-  if (qrModalIndex < 0) return;
-  var btn = document.getElementById("qrRefreshBtn");
-  btn.disabled = true;
-  btn.textContent = "Atualizando...";
-  fetch("/api/admin/qr/refresh/" + qrModalIndex, { method: "POST", headers: { Authorization: "Bearer " + (window._apiKey || "") } })
-    .then(function(r) { return r.json(); })
-    .then(function(d) { toast(d.message || "QR renovado", "info"); })
-    .catch(function() { toast("Erro ao renovar QR", "error"); })
-    .finally(function() { btn.disabled = false; btn.textContent = "Atualizar QR"; });
-  qrStartTime = Date.now();
-}
-
-function cancelQR() {
-  if (qrModalIndex < 0) return;
-  fetch("/api/admin/qr/cancel/" + qrModalIndex, { method: "POST", headers: { Authorization: "Bearer " + (window._apiKey || "") } })
-    .then(function(r) { return r.json(); })
-    .then(function(d) { toast(d.message || "Conexão cancelada", "info"); })
-    .catch(function() { toast("Erro ao cancelar", "error"); });
-  closeQRModal();
-}
-
-function closeQRModal() {
-  document.getElementById("qrModal").classList.remove("active");
-  qrModalIndex = -1;
-  if (qrTimerInterval) { clearInterval(qrTimerInterval); qrTimerInterval = null; }
-  if (qrRefreshTimer) { clearTimeout(qrRefreshTimer); qrRefreshTimer = null; }
-}
-
-// ---- Messages ----
-async function loadMessages() {
-  var params = new URLSearchParams();
-  var acc = document.getElementById("filterMsgAccount").value;
-  var status = document.getElementById("filterMsgStatus").value;
-  var phone = document.getElementById("filterMsgPhone").value.trim();
-  if (acc) params.set("account", acc);
-  if (status) params.set("status", status);
-  if (phone) params.set("phone", phone);
-  params.set("limit", "100");
-  try {
-    var r = await fetch("/api/admin/messages?" + params.toString());
-    var data = await r.json();
-    var tbody = document.getElementById("messagesBody");
-    document.getElementById("msgCount").textContent = data.total + " msg";
-    if (!data.messages || !data.messages.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty">Nenhuma mensagem.</td></tr>'; return; }
-    tbody.innerHTML = data.messages.map(function(m) {
-      var sc = (m.status === "sent"||m.status==="received"||m.status==="delivered") ? "success" : m.status==="failed" ? "error" : "warning";
-      var sl = { sent:"Enviado", received:"Recebida", delivered:"Entregue", read:"Lida", failed:"Falhou" };
-      var ac = "WA " + String((m.account!==undefined?m.account:0)+1).padStart(2,"0");
-      return '<tr><td>' + fmt(m.timestamp) + '</td><td>' + fmtPhone(m.to) + '</td><td>' + ac + '</td><td><span class="tag tag-' + sc + '">' + (sl[m.status]||m.status) + '</span></td><td>' + (m.source||"api") + '</td></tr>';
-    }).join("");
-  } catch(e) {}
-}
-
-// ---- Integrations ----
-async function loadIntegrations() {
-  try {
-    var r = await fetch("/api/admin/integrations");
-    var data = await r.json();
-    var el = document.getElementById("integrationsBody");
-    if (!data.integrations || !data.integrations.length) {
-      el.innerHTML = '<div class="empty">Nenhuma integração registrada.</div>';
-      document.getElementById("intSummary").textContent = "0 integrações";
-      return;
-    }
-    document.getElementById("intSummary").textContent = data.integrations.length + " integração(ões) registrada(s)";
-    el.innerHTML = data.integrations.map(function(i) {
-      var isActive = (Date.now() - new Date(i.lastActivity).getTime()) < 86400000;
-      return '<div class="int-item"><div><div class="int-name">' + esc(i.system || "---") + '</div><div class="int-url">' + esc(i.url || "---") + '</div></div><div class="int-meta"><span class="tag ' + (isActive ? 'tag-success' : 'tag-info') + '">' + (isActive ? "Ativo" : "Inativo") + '</span><div style="margin-top:3px">' + fmtShort(i.lastActivity) + '</div><div style="font-size:.65rem">' + (i.count||0) + ' req</div></div></div>';
-    }).join("");
-  } catch(e) {}
-}
-
-// ---- Contacts ----
-async function loadContacts() {
-  try {
-    var r = await fetch("/api/admin/contacts");
-    var data = await r.json();
-    var el = document.getElementById("contactsBody");
-    if (!data.contacts || !data.contacts.length) { el.innerHTML = '<div class="empty">Nenhum contato.</div>'; return; }
-    el.innerHTML = data.contacts.map(function(c) {
-      var sc = (c.lastStatus==="sent"||c.lastStatus==="received"||c.lastStatus==="delivered") ? "success" : c.lastStatus==="failed" ? "error" : "warning";
-      var sl = { sent:"Enviado", received:"Recebida", delivered:"Entregue", read:"Lida", failed:"Falhou" };
-      var ac = "WA " + String((c.account!==undefined?c.account:0)+1).padStart(2,"0");
-      return '<div class="contact-item"><div><div class="contact-phone">' + fmtPhone(c.phone) + '</div><div style="color:var(--muted);font-size:.68rem">' + ac + ' | ' + fmt(c.lastSendAt) + '</div></div><div class="contact-meta" style="text-align:right"><span class="tag tag-' + sc + '">' + (sl[c.lastStatus]||c.lastStatus) + '</span><div style="margin-top:3px;font-size:.68rem;color:var(--muted)">' + (c.count||0) + ' msg</div></div></div>';
-    }).join("");
-  } catch(e) {}
-}
-
-// ---- Logs ----
-async function loadLogs() {
-  var params = new URLSearchParams();
-  var acc = document.getElementById("filterLogAccount").value;
-  var event = document.getElementById("filterLogEvent").value.trim();
-  if (acc) params.set("account", acc);
-  if (event) params.set("event", event);
-  params.set("limit", "200");
-  try {
-    var r = await fetch("/api/admin/logs?" + params.toString());
-    var data = await r.json();
-    var el = document.getElementById("logsBody");
-    document.getElementById("logCount").textContent = data.total + " logs";
-    if (!data.logs || !data.logs.length) { el.innerHTML = '<div class="empty">Nenhum log.</div>'; return; }
-    el.innerHTML = data.logs.map(function(l) {
-      var ac = (l.data && l.data.account !== undefined) ? l.data.account : 0;
-      return '<div class="log-item"><span class="log-time">' + fmt(l.timestamp) + '</span><span class="log-ac">' + (ac+1) + '</span><span class="log-event">' + esc(l.event||"") + '</span><span class="log-desc">' + esc(l.description||"") + '</span></div>';
-    }).join("");
-  } catch(e) {}
-}
-
-// ---- Reports ----
-async function loadReports() {
-  try {
-    var r = await fetch("/api/admin/messages/stats");
-    var data = await r.json();
-    var stats = data.stats || {};
-    var grid = document.getElementById("reportGrid");
-    var periods = [
-      { key:"today", label:"Hoje" },
-      { key:"week", label:"Esta Semana" },
-      { key:"month", label:"Este Mês" }
-    ];
-    grid.innerHTML = periods.map(function(p) {
-      var d = stats[p.key] || { total:0, byStatus:{} };
-      var bs = d.byStatus || {};
-      return '<div class="report-card"><div class="rp-period">' + p.label + '</div><div class="rp-total">' + d.total + '</div><div class="rp-detail"><span class="rp-green">' + (bs.sent||0) + ' enviadas</span> | <span class="rp-yellow">' + (bs.delivered||0) + ' entregues</span> | <span class="rp-red">' + (bs.failed||0) + ' falhas</span></div></div>';
-    }).join("") +
-    '<div class="report-card"><div class="rp-period">Total Geral</div><div class="rp-total">' + (stats.allTime ? stats.allTime.total : 0) + '</div><div class="rp-detail">Total de mensagens registradas</div></div>';
-
-    // Last 20 messages
-    var r2 = await fetch("/api/admin/messages?limit=20");
-    var d2 = await r2.json();
-    var tb = document.getElementById("reportBody");
-    if (!d2.messages || !d2.messages.length) { tb.innerHTML = '<tr><td colspan="4" class="empty">Nenhuma mensagem.</td></tr>'; return; }
-    tb.innerHTML = d2.messages.map(function(m) {
-      var sc = (m.status==="sent"||m.status==="received"||m.status==="delivered") ? "success" : m.status==="failed" ? "error" : "warning";
-      var sl = { sent:"Enviado", received:"Recebida", delivered:"Entregue", read:"Lida", failed:"Falhou" };
-      var ac = "WA " + String((m.account!==undefined?m.account:0)+1).padStart(2,"0");
-      return '<tr><td>' + fmtShort(m.timestamp) + '</td><td>' + fmtPhone(m.to) + '</td><td>' + ac + '</td><td><span class="tag tag-' + sc + '">' + (sl[m.status]||m.status) + '</span></td></tr>';
-    }).join("");
-  } catch(e) {}
+function renderQueue(stats, messages) {
+  var grid = byId("queueGrid");
+  grid.innerHTML =
+    '<div class="queue-card"><div class="qty" style="color:var(--accent)">' + (stats.pending||0) + '</div><div class="qlabel">Pendentes</div></div>' +
+    '<div class="queue-card"><div class="qty" style="color:var(--yellow)">' + (stats.processing||0) + '</div><div class="qlabel">Processando</div></div>' +
+    '<div class="queue-card"><div class="qty" style="color:var(--green)">' + (stats.completed||0) + '</div><div class="qlabel">Completados</div></div>' +
+    '<div class="queue-card"><div class="qty" style="color:var(--red)">' + (stats.failed||0) + '</div><div class="qlabel">Falhou</div></div>' +
+    '<div class="queue-card"><div class="qty" style="color:var(--red)">' + (stats.deadletter||0) + '</div><div class="qlabel">Dead Letter</div></div>' +
+    '<div class="queue-card"><div class="qty" style="color:var(--muted)">' + stats.total + '</div><div class="qlabel">Total</div></div>';
+  byId("sQueuePend").textContent = stats.pending || 0;
+  byId("queueCount").textContent = messages.length + " mensagens";
+  var list = byId("queueList");
+  if (!messages.length) { list.innerHTML = '<div class="empty">Nenhuma mensagem na fila.</div>'; return }
+  list.innerHTML = messages.map(function(m) {
+    var sc = m.status === "completed" ? "success" : m.status === "deadletter" ? "error" : m.status === "failed" ? "error" : m.status === "processing" ? "warning" : "info";
+    var sl = { pending:"Pendente", processing:"Processando", completed:"Completado", failed:"Falhou", deadletter:"Dead Letter" };
+    var actions = "";
+    if (m.status === "failed" || m.status === "deadletter") actions = '<button class="btn btn-sm btn-warning" onclick="window._retryMsg(' + m.id + ')" style="font-size:.62rem;padding:.15rem .4rem">Retry</button>';
+    return '<div class="qitem"><span class="qphone">' + (m.phone || "---") + '</span><span class="qmsg">' + esc((m.message||"").slice(0,60)) + '</span><span class="qretry">' + (m.retry_count||0) + 'x</span><span class="tag tag-' + sc + '" style="min-width:50px;text-align:center">' + (sl[m.status]||m.status) + '</span>' + actions + '</div>';
+  }).join("");
 }
 
 // ---- Account Actions ----
-async function addAccount() {
-  try {
-    var r = await fetch("/api/admin/account/add", { method:"POST", headers: { Authorization:"Bearer "+(window._apiKey||"") } });
-    var d = await r.json();
-    if (d.success) { toast(d.message, "info"); if (d.index !== undefined) showQR(d.index); }
-    else toast(d.error || "Erro", "error");
-    setTimeout(fetchDashboard, 1000);
-  } catch(e) { toast("Erro ao adicionar conta", "error"); }
+window._acConnect = function(i) {
+  api("/api/account/" + i + "/connect", { method:"POST" }).then(function() { toast("Conectando conta " + (i+1) + "...", "info") });
+}
+window._acReconnect = function(i) {
+  api("/api/account/" + i + "/reconnect", { method:"POST" }).then(function() { toast("Reconectando conta " + (i+1) + "...", "info") });
+}
+window._acDisconnect = function(i) {
+  api("/api/account/" + i + "/disconnect", { method:"POST" }).then(function() { toast("Conta " + (i+1) + " desconectada", "info") });
+}
+window._showQR = function(i) {
+  qrModalIndex = i;
+  byId("qrModalTitle").textContent = "Conta " + (i+1);
+  byId("qrModalImg").style.display = "none";
+  byId("qrModalPlaceholder").style.display = "flex";
+  byId("qrModal").classList.add("active");
+  window._acConnect(i);
+  if (qrTimer) clearInterval(qrTimer);
+  var sec = 55;
+  qrTimer = setInterval(function() {
+    byId("qrTimer").textContent = "Renova em: " + Math.floor(sec/60) + ":" + (sec%60 < 10 ? "0" : "") + (sec%60);
+    if (sec-- <= 0) { clearInterval(qrTimer); qrTimer = null }
+  }, 1000);
+}
+window.refreshQR = function() {
+  if (qrModalIndex < 0) return;
+  api("/api/admin/qr/refresh/" + qrModalIndex, { method:"POST" }).then(function(d) { toast(d.message || "QR renovado", "info"); sec = 55 });
+}
+window.cancelQR = function() {
+  if (qrModalIndex < 0) return;
+  api("/api/admin/qr/cancel/" + qrModalIndex, { method:"POST" }).then(function() { toast("Conexão cancelada", "info") });
+  byId("qrModal").classList.remove("active");
+  qrModalIndex = -1;
+  if (qrTimer) { clearInterval(qrTimer); qrTimer = null }
+}
+window._retryMsg = function(id) {
+  api("/api/queue/retry/" + id, { method:"POST" }).then(function(d) { toast(d.message || "Reenfileirado", "info"); loadQueue() });
 }
 
-async function acConnect(i) {
-  try {
-    await fetch("/api/account/"+i+"/connect", { method:"POST", headers:{ Authorization:"Bearer "+(window._apiKey||"") } });
-    toast("Conectando conta "+(i+1)+"...", "info");
-    setTimeout(fetchDashboard, 1500);
-  } catch(e) { toast("Erro ao conectar", "error"); }
+function openTab(id, el) {
+  qa(".tab").forEach(function(t) { t.classList.remove("active") });
+  qa(".tab-content").forEach(function(t) { t.classList.remove("active") });
+  el.classList.add("active");
+  var tabId = "tab" + id.charAt(0).toUpperCase() + id.slice(1);
+  var tabEl = byId(tabId);
+  if (tabEl) tabEl.classList.add("active");
+  if (id === "mensagens") loadMessages();
+  if (id === "contatos") loadContacts();
+  if (id === "logs") loadLogs();
+  if (id === "relatorios") loadReports();
+  if (id === "fila") loadQueue();
 }
 
-async function acReconnect(i) {
-  try {
-    await fetch("/api/account/"+i+"/reconnect", { method:"POST", headers:{ Authorization:"Bearer "+(window._apiKey||"") } });
-    toast("Reconectando conta "+(i+1)+"...", "info");
-    setTimeout(fetchDashboard, 1500);
-  } catch(e) { toast("Erro ao reconectar", "error"); }
-}
-
-async function acDisconnect(i) {
-  try {
-    await fetch("/api/account/"+i+"/disconnect", { method:"POST", headers:{ Authorization:"Bearer "+(window._apiKey||"") } });
-    toast("Desconectando conta "+(i+1), "info");
-    setTimeout(fetchDashboard, 1000);
-  } catch(e) { toast("Erro ao desconectar", "error"); }
-  closeQRModal();
-}
-
-async function acRemove(i) {
-  try {
-    await fetch("/api/account/"+i+"/remove", { method:"POST", headers:{ Authorization:"Bearer "+(window._apiKey||"") } });
-    toast("Sessão da conta "+(i+1)+" removida", "info");
-    setTimeout(fetchDashboard, 1000);
-  } catch(e) { toast("Erro ao remover sessão", "error"); }
-  closeQRModal();
-}
-
-// ---- Dashboard ----
-async function fetchDashboard() {
-  try {
-    var r = await fetch("/api/admin/dashboard");
-    var data = await r.json();
-    window._dashData = data;
-    renderKPI(data);
-
-    // Status bar
-    var dot = document.getElementById("topStatusDot");
-    var text = document.getElementById("topStatusText");
-    var state = "starting";
-    if (data.accounts && data.accounts.connected > 0) state = "connected";
-    else if (data.accounts && data.accounts.total > 0) state = "offline";
-    dot.className = "status-dot " + statusDot(state);
-    text.textContent = data.accounts ? (data.accounts.connected + " de " + data.accounts.total + " contas conectadas") : "Carregando...";
-  } catch(e) {}
-
-  // Also get full account details
-  try {
-    var r2 = await fetch("/api/admin/status");
-    var d2 = await r2.json();
-    if (d2.accounts) {
-      renderAccounts(d2.accounts);
-      var sel1 = document.getElementById("filterMsgAccount");
-      var sel2 = document.getElementById("filterLogAccount");
-      var cur1 = sel1.value, cur2 = sel2.value;
-      sel1.innerHTML = '<option value="">Todas</option>' + d2.accounts.map(function(a,i) { return '<option value="'+i+'">'+a.label+'</option>'; }).join("");
-      sel2.innerHTML = '<option value="">Todas</option>' + d2.accounts.map(function(a,i) { return '<option value="'+i+'">'+a.label+'</option>'; }).join("");
-      sel1.value = cur1; sel2.value = cur2;
-    }
-  } catch(e) {}
-}
-
-// ---- Tabs ----
-document.querySelectorAll(".tab").forEach(function(tab) {
-  tab.addEventListener("click", function() {
-    document.querySelectorAll(".tab").forEach(function(t) { t.classList.remove("active"); });
-    document.querySelectorAll(".tab-content").forEach(function(t) { t.classList.remove("active"); });
-    tab.classList.add("active");
-    var id = tab.dataset.tab;
-    document.getElementById("tab" + id.charAt(0).toUpperCase() + id.slice(1)).classList.add("active");
-    if (id === "mensagens") loadMessages();
-    if (id === "contatos") loadContacts();
-    if (id === "logs") loadLogs();
-    if (id === "integracoes") loadIntegrations();
-    if (id === "relatorios") loadReports();
-  });
+qa("#mainTabs .tab").forEach(function(tab) {
+  tab.addEventListener("click", function() { openTab(tab.dataset.tab, tab) });
 });
 
-// ---- Socket.io ----
-socket.on("admin:status", fetchDashboard);
-socket.on("admin:message", function() { loadMessages(); loadContacts(); });
-socket.on("connect", fetchDashboard);
-socket.on("connected", fetchDashboard);
-socket.on("disconnected", fetchDashboard);
-socket.on("qr", function(d) {
-  fetchDashboard();
-  if (qrModalIndex >= 0 && d.account === qrModalIndex) {
-    if (d.qrDataUrl) {
-      document.getElementById("qrModalImg").src = d.qrDataUrl;
-      document.getElementById("qrModalImg").style.display = "";
-      document.getElementById("qrModalPlaceholder").style.display = "none";
-    }
-    if (d.state === "connected") {
-      toast("Conta " + (qrModalIndex + 1) + " conectada!", "success");
-      closeQRModal();
+async function fetchDashboard() {
+  var data = await api("/api/admin/dashboard");
+  if (data.success) {
+    renderKPI(data);
+    var dot = byId("topStatusDot");
+    var txt = byId("topStatusText");
+    var state = (data.accounts && data.accounts.connected > 0) ? "connected" : (data.accounts && data.accounts.total > 0) ? "offline" : "starting";
+    dot.className = "status-dot " + statusDot(state);
+    txt.textContent = data.accounts ? (data.accounts.connected + " de " + data.accounts.total + " contas conectadas") : "Carregando...";
+    byId("topUptime").textContent = data.uptimeSeconds ? Math.floor(data.uptimeSeconds / 60) + "min online" : "";
+  }
+  var d2 = await api("/api/admin/status");
+  if (d2.success && d2.accounts) {
+    renderAccounts(d2.accounts);
+    if (qrModalIndex >= 0) {
+      var acc = d2.accounts[qrModalIndex];
+      if (acc && acc.qr) {
+        byId("qrModalImg").src = acc.qr;
+        byId("qrModalImg").style.display = "";
+        byId("qrModalPlaceholder").style.display = "none";
+      }
+      if (acc && acc.state === "connected") {
+        toast("Conta " + (qrModalIndex + 1) + " conectada!", "success");
+        byId("qrModal").classList.remove("active");
+        qrModalIndex = -1;
+        if (qrTimer) { clearInterval(qrTimer); qrTimer = null }
+      }
     }
   }
-});
+}
 
-// ---- Init ----
+async function loadMessages() {
+  var params = new URLSearchParams();
+  var s = byId("filterMsgStatus").value;
+  var p = byId("filterMsgPhone").value.trim();
+  if (s) params.set("status", s);
+  if (p) params.set("phone", p);
+  params.set("limit", "100");
+  var data = await api("/api/admin/messages?" + params.toString());
+  var tb = byId("messagesBody");
+  byId("msgCount").textContent = (data.messages||[]).length + " msg";
+  if (!data.messages || !data.messages.length) { tb.innerHTML = '<tr><td colspan="4" class="empty">Nenhuma mensagem.</td></tr>'; return }
+  tb.innerHTML = data.messages.map(function(m) {
+    var sc = (m.status === "sent"||m.status==="received"||m.status==="delivered") ? "success" : m.status==="failed" ? "error" : "warning";
+    var sl = { sent:"Enviado", received:"Recebida", delivered:"Entregue", read:"Lida", failed:"Falhou" };
+    return '<tr><td>' + fmt(m.timestamp) + '</td><td>' + fmtPhone(m.to) + '</td><td><span class="tag tag-' + sc + '">' + (sl[m.status]||m.status) + '</span></td><td>' + (m.source||"api") + "</td></tr>";
+  }).join("");
+}
+
+async function loadQueue() {
+  var stats = await api("/api/queue/stats");
+  var msgs = await api("/api/queue/messages?limit=50");
+  if (stats.success) renderQueue(stats.stats || {}, msgs.messages || []);
+}
+
+async function loadContacts() {
+  var data = await api("/api/admin/contacts");
+  var el = byId("contactsBody");
+  if (!data.contacts || !data.contacts.length) { el.innerHTML = '<div class="empty">Nenhum contato.</div>'; return }
+  el.innerHTML = data.contacts.map(function(c) {
+    var sc = (c.lastStatus==="sent"||c.lastStatus==="received"||c.lastStatus==="delivered") ? "success" : c.lastStatus==="failed" ? "error" : "warning";
+    var sl = { sent:"Enviado", received:"Recebida", delivered:"Entregue", read:"Lida", failed:"Falhou" };
+    return '<div class="contact-item"><div><div class="contact-phone">' + fmtPhone(c.phone) + '</div><div style="color:var(--muted);font-size:.68rem">' + fmt(c.lastSendAt) + '</div></div><div style="text-align:right"><span class="tag tag-' + sc + '">' + (sl[c.lastStatus]||c.lastStatus) + '</span><div style="margin-top:3px;font-size:.68rem;color:var(--muted)">' + (c.count||0) + " msg</div></div></div>";
+  }).join("");
+}
+
+async function loadLogs() {
+  var params = new URLSearchParams();
+  var e = byId("filterLogEvent").value.trim();
+  if (e) params.set("event", e);
+  params.set("limit", "200");
+  var data = await api("/api/admin/logs?" + params.toString());
+  var el = byId("logsBody");
+  byId("logCount").textContent = (data.logs||[]).length + " logs";
+  if (!data.logs || !data.logs.length) { el.innerHTML = '<div class="empty">Nenhum log.</div>'; return }
+  el.innerHTML = data.logs.map(function(l) {
+    var ac = (l.data && l.data.account !== undefined) ? l.data.account : 0;
+    return '<div class="log-item"><span class="log-time">' + fmt(l.timestamp) + '</span><span class="log-ac">' + (ac+1) + '</span><span class="log-event">' + esc(l.event||"") + '</span><span class="log-desc">' + esc(l.description||"") + "</span></div>";
+  }).join("");
+}
+
+async function loadReports() {
+  var dr = await api("/api/admin/messages/stats");
+  var stats = dr.stats || {};
+  var periods = [{ key:"today", label:"Hoje" },{ key:"week", label:"Esta Semana" },{ key:"month", label:"Este Mês" }];
+  byId("reportGrid").innerHTML = periods.map(function(p) {
+    var d = stats[p.key] || { total:0, byStatus:{} };
+    var bs = d.byStatus || {};
+    return '<div class="report-card"><div class="rp-period">' + p.label + '</div><div class="rp-total">' + d.total + '</div><div class="rp-detail"><span style="color:var(--green)">' + (bs.sent||0) + '</span> | <span style="color:var(--yellow)">' + (bs.delivered||0) + '</span> | <span style="color:var(--red)">' + (bs.failed||0) + "</span></div></div>";
+  }).join("") +
+    '<div class="report-card"><div class="rp-period">Total Geral</div><div class="rp-total">' + ((stats.allTime||{}).total||0) + '</div><div class="rp-detail">Mensagens registradas</div></div>';
+  var r2 = await api("/api/admin/messages?limit=20");
+  var tb = byId("reportBody");
+  if (!r2.messages || !r2.messages.length) { tb.innerHTML = '<tr><td colspan="3" class="empty">Nenhuma mensagem.</td></tr>'; return }
+  tb.innerHTML = r2.messages.map(function(m) {
+    var sc = (m.status==="sent"||m.status==="received"||m.status==="delivered") ? "success" : m.status==="failed" ? "error" : "warning";
+    var sl = { sent:"Enviado", received:"Recebida", delivered:"Entregue", read:"Lida", failed:"Falhou" };
+    return '<tr><td>' + fmt(m.timestamp) + '</td><td>' + fmtPhone(m.to) + '</td><td><span class="tag tag-' + sc + '">' + (sl[m.status]||m.status) + "</span></td></tr>";
+  }).join("");
+}
+
+async function addAccount() {
+  var d = await api("/api/admin/account/add", { method:"POST" });
+  if (d.success) { toast(d.message, "info"); if (d.index !== undefined) window._showQR(d.index) }
+  else toast(d.error || "Erro", "error");
+}
+
+async function retryAll() {
+  var d = await api("/api/queue/retry-all", { method:"POST" });
+  toast(d.message || "Reenfileiradas", "info");
+  loadQueue();
+}
+
+async function clearCompleted() {
+  var d = await api("/api/queue/clear-completed", { method:"POST" });
+  toast(d.message || "Limpos", "info");
+  loadQueue();
+}
+
+function fullRefresh() {
+  fetchDashboard();
+  loadMessages();
+  loadContacts();
+  loadLogs();
+  loadReports();
+  loadQueue();
+}
+
 fetchDashboard();
 loadMessages();
 loadContacts();
 loadLogs();
-loadIntegrations();
 loadReports();
-setInterval(fetchDashboard, 4000);
-setInterval(loadMessages, 7000);
-setInterval(loadContacts, 12000);
-setInterval(loadLogs, 15000);
-setInterval(loadIntegrations, 15000);
-setInterval(loadReports, 20000);
+loadQueue();
+setInterval(fetchDashboard, 5000);
+setInterval(loadQueue, 8000);
+setInterval(loadMessages, 10000);
+})();
 </script>
 </body>
 </html>`;
