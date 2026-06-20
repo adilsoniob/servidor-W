@@ -11,6 +11,7 @@ import { disconnectRouter } from "./routes/disconnect.js";
 import { qrPageRouter } from "./routes/qr-page.js";
 import { createAdminRouter } from "./routes/admin.js";
 import { createQueueRouter } from "./routes/queue.js";
+import { createCampaignRouter } from "./routes/campaigns.js";
 import { createDiagnosticsRouter } from "./routes/diagnostics.js";
 
 export function createApp(whatsapp) {
@@ -38,6 +39,9 @@ export function createApp(whatsapp) {
 
   // Queue management API
   app.use("/api/queue", createQueueRouter(authMiddleware, tracker));
+
+  // Campaign management API
+  app.use("/api/campaigns", createCampaignRouter(authMiddleware));
 
   // Diagnostics (autenticada)
   app.use("/api/diag", createDiagnosticsRouter(authMiddleware));

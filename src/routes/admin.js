@@ -1,5 +1,38 @@
 import { Router } from "express";
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
 import { getStealthConfig, setStealthEnabled } from "../services/stealth/runtime.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const DATA_DIR = join(__dirname, "../../data");
+const WHATSAPP_MSGS_FILE = join(DATA_DIR, "whatsapp-messages.json");
+
+function ensureDataDir() {
+  if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
+}
+
+function loadWAMessages() {
+  ensureDataDir();
+  if (!existsSync(WHATSAPP_MSGS_FILE)) return [];
+  try {
+    return JSON.parse(readFileSync(WHATSAPP_MSGS_FILE, "utf8"));
+  } catch { return []; }
+}
+
+function saveWAMessages(msgs) {
+  ensureDataDir();
+  writeFileSync(WHATSAPP_MSGS_FILE, JSON.stringify(msgs, null, 2));
+}
+
+let _nextMsgId = null;
+function getNextMsgId(msgs) {
+  if (_nextMsgId === null) {
+    _nextMsgId = msgs.reduce((max, m) => Math.max(max, m.id || 0), 0) + 1;
+  }
+  return _nextMsgId++;
+}
 
 export function createAdminRouter(whatsapp) {
   const router = Router();
@@ -74,6 +107,118 @@ export function createAdminRouter(whatsapp) {
     const enabled = req.body?.enabled === true;
     setStealthEnabled(enabled);
     res.json({ success: true, enabled });
+  });
+
+  // ---- Templates ----
+
+  router.get("/api/admin/templates", (_req, res) => {
+    const templates = loadTemplates();
+    res.json({ success: true, templates });
+  });
+
+  router.get("/api/admin/templates/:id", (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const templates = loadTemplates();
+    const template = templates.find((t) => t.id === id);
+    if (!template) return res.status(404).json({ success: false, error: "Template não encontrado" });
+    res.json({ success: true, template });
+  });
+
+  router.post("/api/admin/templates", (req, res) => {
+    const text = (req.body?.text || "").trim();
+    if (!text) return res.status(400).json({ success: false, error: "Texto obrigatório" });
+    const templates = loadTemplates();
+    if (templates.length >= 50) return res.status(400).json({ success: false, error: "Máximo de 50 templates" });
+    const id = getNextTemplateId(templates);
+    templates.push({ id, text, createdAt: new Date().toISOString() });
+    saveTemplates(templates);
+    res.json({ success: true, message: "Template criado", id });
+  });
+
+  router.put("/api/admin/templates/:id", (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const text = (req.body?.text || "").trim();
+    if (!text) return res.status(400).json({ success: false, error: "Texto obrigatório" });
+    const templates = loadTemplates();
+    const idx = templates.findIndex((t) => t.id === id);
+    if (idx === -1) return res.status(404).json({ success: false, error: "Template não encontrado" });
+    templates[idx].text = text;
+    templates[idx].updatedAt = new Date().toISOString();
+    saveTemplates(templates);
+    res.json({ success: true, message: "Template atualizado" });
+  });
+
+  router.delete("/api/admin/templates/:id", (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    let templates = loadTemplates();
+    const len = templates.length;
+    templates = templates.filter((t) => t.id !== id);
+    if (templates.length === len) return res.status(404).json({ success: false, error: "Template não encontrado" });
+    saveTemplates(templates);
+    res.json({ success: true, message: "Template excluído" });
+  });
+
+  // ---- WhatsApp Messages (gerenciamento de mensagens para EdgeOne) ----
+
+  router.get("/api/admin/whatsapp-messages", (_req, res) => {
+    const messages = loadWAMessages();
+    res.json({ success: true, messages });
+  });
+
+  router.get("/api/whatsapp-messages", (_req, res) => {
+    const messages = loadWAMessages().filter((m) => m.active);
+    res.json({ success: true, messages: messages.map((m) => ({ id: m.id, text: m.text })) });
+  });
+
+  router.post("/api/admin/whatsapp-messages", (req, res) => {
+    const text = (req.body?.text || "").trim();
+    if (!text) return res.status(400).json({ success: false, error: "Texto obrigatório" });
+    if (text.length > 1600) return res.status(400).json({ success: false, error: "Máximo 1600 caracteres" });
+    const messages = loadWAMessages();
+    if (messages.length >= 50) return res.status(400).json({ success: false, error: "Máximo de 50 mensagens" });
+    const id = getNextMsgId(messages);
+    const active = req.body?.active !== false;
+    messages.push({ id, text, active, createdAt: new Date().toISOString() });
+    saveWAMessages(messages);
+    res.json({ success: true, message: "Mensagem criada", id });
+  });
+
+  router.put("/api/admin/whatsapp-messages/:id", (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const messages = loadWAMessages();
+    const idx = messages.findIndex((m) => m.id === id);
+    if (idx === -1) return res.status(404).json({ success: false, error: "Mensagem não encontrada" });
+    if (req.body?.text !== undefined) {
+      const text = req.body.text.trim();
+      if (!text) return res.status(400).json({ success: false, error: "Texto obrigatório" });
+      if (text.length > 1600) return res.status(400).json({ success: false, error: "Máximo 1600 caracteres" });
+      messages[idx].text = text;
+    }
+    if (req.body?.active !== undefined) messages[idx].active = !!req.body.active;
+    messages[idx].updatedAt = new Date().toISOString();
+    saveWAMessages(messages);
+    res.json({ success: true, message: "Mensagem atualizada" });
+  });
+
+  router.post("/api/admin/whatsapp-messages/:id/toggle", (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const messages = loadWAMessages();
+    const msg = messages.find((m) => m.id === id);
+    if (!msg) return res.status(404).json({ success: false, error: "Mensagem não encontrada" });
+    msg.active = !msg.active;
+    msg.updatedAt = new Date().toISOString();
+    saveWAMessages(messages);
+    res.json({ success: true, active: msg.active });
+  });
+
+  router.delete("/api/admin/whatsapp-messages/:id", (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    let messages = loadWAMessages();
+    const len = messages.length;
+    messages = messages.filter((m) => m.id !== id);
+    if (messages.length === len) return res.status(404).json({ success: false, error: "Mensagem não encontrada" });
+    saveWAMessages(messages);
+    res.json({ success: true, message: "Mensagem excluída" });
   });
 
   // ---- Admin HTML ----
@@ -256,9 +401,11 @@ tr:hover td{background:rgba(59,130,246,.04)}
           <div class="tab" data-tab="contas">Contas</div>
           <div class="tab" data-tab="fila">Fila</div>
           <div class="tab" data-tab="mensagens">Mensagens</div>
+          <div class="tab" data-tab="templates">Templates</div>
           <div class="tab" data-tab="contatos">Contatos</div>
           <div class="tab" data-tab="logs">Logs</div>
           <div class="tab" data-tab="relatorios">Relatórios</div>
+          <div class="tab" data-tab="campanhas">Campanhas</div>
         </div>
         <!-- Dashboard -->
         <div class="tab-content active" id="tabDashboard">
@@ -298,6 +445,26 @@ tr:hover td{background:rgba(59,130,246,.04)}
             </table>
           </div>
         </div>
+        <!-- Templates (Mensagens WhatsApp) -->
+        <div class="tab-content" id="tabTemplates">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.85rem;flex-wrap:wrap;gap:.5rem">
+            <div>
+              <h3 style="margin:0;font-size:.9rem">Mensagens WhatsApp (máx. 50)</h3>
+              <div style="font-size:.68rem;color:var(--muted);margin-top:2px">Ative as mensagens que devem ser enviadas aleatoriamente pelo EdgeOne</div>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="openWAMsgModal()">+ Nova Mensagem</button>
+          </div>
+          <div style="font-size:.7rem;color:var(--muted);margin-bottom:.6rem">
+            Variáveis: <code>{saudacao}</code> <code>{primeiro_nome}</code> <code>{nome}</code> <code>{cpf}</code> <code>{telefone}</code> <code>{link}</code> <code>{link_pagamento}</code> <code>{data}</code> <code>{hora}</code>
+          </div>
+          <div id="waMsgStats" style="display:flex;gap:.5rem;margin-bottom:.65rem;flex-wrap:wrap"></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th style="width:40px">#</th><th>Mensagem</th><th style="width:70px">Status</th><th style="width:160px">Ações</th></tr></thead>
+              <tbody id="waMsgsBody"><tr><td colspan="4" class="empty">Carregando...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
         <!-- Contatos -->
         <div class="tab-content" id="tabContatos">
           <div id="contactsBody"></div>
@@ -322,6 +489,23 @@ tr:hover td{background:rgba(59,130,246,.04)}
             </table>
           </div>
         </div>
+        <!-- Campanhas -->
+        <div class="tab-content" id="tabCampanhas">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.85rem;flex-wrap:wrap;gap:.5rem">
+            <div>
+              <h3 style="margin:0;font-size:.9rem">Campanhas de Envio</h3>
+              <div style="font-size:.68rem;color:var(--muted);margin-top:2px">Envie mensagens em lote com delays inteligentes</div>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="openCampaignModal()">+ Nova Campanha</button>
+          </div>
+          <div id="campaignStats" style="display:flex;gap:.5rem;margin-bottom:.65rem;flex-wrap:wrap"></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Nome</th><th>Status</th><th>Enviado</th><th>Pendente</th><th>Erros</th><th>Criada</th><th>Ações</th></tr></thead>
+              <tbody id="campaignsBody"><tr><td colspan="7" class="empty">Nenhuma campanha criada.</td></tr></tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -342,10 +526,75 @@ tr:hover td{background:rgba(59,130,246,.04)}
     </div>
   </div>
 </div>
+<!-- WA Message Modal -->
+<div class="modal-overlay" id="waMsgModal">
+  <div class="modal" style="max-width:600px">
+    <h3 id="waMsgModalTitle">Nova Mensagem</h3>
+    <input type="hidden" id="waMsgEditId">
+    <textarea id="waMsgText" rows="8" placeholder="Digite a mensagem... Use variáveis: {saudacao}, {primeiro_nome}, {nome}, {cpf}, {telefone}, {link}, {link_pagamento}, {data}, {hora}" style="width:100%;font-family:inherit;padding:.5rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);resize:vertical"></textarea>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:.5rem">
+      <label style="font-size:.72rem;display:flex;align-items:center;gap:6px;cursor:pointer">
+        <input type="checkbox" id="waMsgActive" checked style="accent-color:var(--accent)">
+        <span>Ativa (enviada aleatoriamente)</span>
+      </label>
+      <span style="font-size:.65rem;color:var(--muted)" id="waMsgCharCount">0/1600</span>
+    </div>
+    <div class="modal-actions" style="margin-top:.75rem">
+      <button class="btn btn-primary" onclick="saveWAMsg()">Salvar</button>
+      <button class="btn btn-outline" onclick="closeWAMsgModal()">Cancelar</button>
+    </div>
+  </div>
+</div>
+<!-- Campaign Modal -->
+<div class="modal-overlay" id="campaignModal">
+  <div class="modal" style="max-width:650px">
+    <h3>Nova Campanha</h3>
+    <div style="display:grid;gap:.75rem;margin-top:.75rem">
+      <div>
+        <label style="font-size:.72rem;font-weight:600;display:block;margin-bottom:4px">Nome da Campanha</label>
+        <input id="campaignName" type="text" placeholder="Ex: Promocao Junho 2026" style="width:100%;padding:.5rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.82rem">
+      </div>
+      <div>
+        <label style="font-size:.72rem;font-weight:600;display:block;margin-bottom:4px">Numeros (max. 100, um por linha)</label>
+        <textarea id="campaignNumbers" rows="5" placeholder="5511999999999&#10;5521988888888&#10;5531977777777" style="width:100%;padding:.5rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-family:monospace;font-size:.78rem;resize:vertical"></textarea>
+        <div style="font-size:.65rem;color:var(--muted);margin-top:2px"><span id="campaignNumCount">0</span>/100 numeros</div>
+      </div>
+      <div>
+        <label style="font-size:.72rem;font-weight:600;display:block;margin-bottom:4px">Modelos de Mensagem (max. 5, alterna automaticamente)</label>
+        <div id="campaignMsgFields">
+          <div style="display:flex;gap:.3rem;margin-bottom:.3rem">
+            <textarea class="campaign-msg-input" rows="2" placeholder="Mensagem 1... Variaveis: {saudacao}, {primeiro_nome}, {nome_completo}, {hora}, {minuto}, {emoji}, {cpf_mascarado}, {cpf}, {telefone}" style="flex:1;padding:.4rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.78rem;resize:vertical"></textarea>
+            <button class="btn btn-danger btn-sm" onclick="removeCampaignMsg(this)" style="align-self:flex-start" title="Remover">✕</button>
+          </div>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="addCampaignMsgField()" style="margin-top:.3rem">+ Adicionar Mensagem</button>
+        <div style="font-size:.65rem;color:var(--muted);margin-top:2px">Variaveis: <code>{saudacao}</code> <code>{primeiro_nome}</code> <code>{nome_completo}</code> <code>{hora}</code> <code>{minuto}</code> <code>{emoji}</code> <code>{cpf_mascarado}</code></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
+        <div>
+          <label style="font-size:.72rem;font-weight:600;display:block;margin-bottom:4px">Delay Minimo (segundos)</label>
+          <input id="campaignDelayMin" type="number" value="180" min="60" max="600" style="width:100%;padding:.5rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.82rem">
+        </div>
+        <div>
+          <label style="font-size:.72rem;font-weight:600;display:block;margin-bottom:4px">Delay Maximo (segundos)</label>
+          <input id="campaignDelayMax" type="number" value="300" min="60" max="600" style="width:100%;padding:.5rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.82rem">
+        </div>
+      </div>
+      <div style="font-size:.68rem;color:var(--muted);background:var(--bg);padding:.5rem;border-radius:6px">
+        <strong>Delays inteligentes:</strong> O sistema alternara aleatoriamente entre o minimo e maximo configurado para simular comportamento humano. Com stealth ativo, delays adicionais de 4-14s sao aplicados entre cada envio.
+      </div>
+    </div>
+    <div class="modal-actions" style="margin-top:.75rem">
+      <button class="btn btn-primary" onclick="saveCampaign()">Criar Campanha</button>
+      <button class="btn btn-outline" onclick="closeCampaignModal()">Cancelar</button>
+    </div>
+  </div>
+</div>
 <div class="toast" id="toastContainer"></div>
 <script>
 var qrModalIndex = -1;
 var qrTimer = null;
+var waMsgEditId = null;
 
 function toast(msg, type) {
   var el = document.createElement("div");
@@ -490,6 +739,115 @@ window.cancelQR = function() {
   qrModalIndex = -1;
   if (qrTimer) { clearInterval(qrTimer); qrTimer = null }
 }
+
+// ---- WhatsApp Messages (Mensagens EdgeOne) ----
+window.openWAMsgModal = function(id) {
+  var modal = byId("waMsgModal");
+  var textarea = byId("waMsgText");
+  var title = byId("waMsgModalTitle");
+  var activeCheck = byId("waMsgActive");
+  var charCount = byId("waMsgCharCount");
+  if (id !== undefined) {
+    waMsgEditId = id;
+    title.textContent = "Editar Mensagem";
+    api("/api/admin/whatsapp-messages").then(function(r) {
+      if (r.success) {
+        var msg = r.messages.find(function(m) { return m.id === id });
+        if (msg) {
+          textarea.value = msg.text || "";
+          activeCheck.checked = !!msg.active;
+          charCount.textContent = textarea.value.length + "/1600";
+        }
+      }
+    });
+  } else {
+    waMsgEditId = null;
+    title.textContent = "Nova Mensagem";
+    textarea.value = "";
+    activeCheck.checked = true;
+    charCount.textContent = "0/1600";
+  }
+  modal.classList.add("active");
+};
+
+window.closeWAMsgModal = function() {
+  byId("waMsgModal").classList.remove("active");
+  waMsgEditId = null;
+};
+
+window.saveWAMsg = function() {
+  var text = byId("waMsgText").value.trim();
+  var active = byId("waMsgActive").checked;
+  if (!text) { toast("Mensagem vazia", "error"); return }
+  var url = waMsgEditId ? "/api/admin/whatsapp-messages/" + waMsgEditId : "/api/admin/whatsapp-messages";
+  var method = waMsgEditId ? "PUT" : "POST";
+  api(url, { method: method, body: { text: text, active: active } }).then(function(r) {
+    if (r.success) {
+      toast(waMsgEditId ? "Mensagem atualizada" : "Mensagem criada", "success");
+      closeWAMsgModal();
+      loadWAMessages();
+    } else {
+      toast(r.error || "Erro", "error");
+    }
+  });
+};
+
+async function loadWAMessages() {
+  var r = await api("/api/admin/whatsapp-messages");
+  var tb = byId("waMsgsBody");
+  var statsEl = byId("waMsgStats");
+  if (!r.success || !r.messages || !r.messages.length) {
+    tb.innerHTML = '<tr><td colspan="4" class="empty">Nenhuma mensagem. Crie mensagens para envio aleatório pelo EdgeOne.</td></tr>';
+    statsEl.innerHTML = '<div class="queue-card" style="padding:.4rem .6rem"><div class="qty" style="color:var(--muted);font-size:1rem">0</div><div class="qlabel">Total</div></div><div class="queue-card" style="padding:.4rem .6rem"><div class="qty" style="color:var(--green);font-size:1rem">0</div><div class="qlabel">Ativas</div></div>';
+    return;
+  }
+  var total = r.messages.length;
+  var activeCount = r.messages.filter(function(m) { return m.active }).length;
+  statsEl.innerHTML =
+    '<div class="queue-card" style="padding:.4rem .6rem"><div class="qty" style="color:var(--accent);font-size:1rem">' + total + '</div><div class="qlabel">Total</div></div>' +
+    '<div class="queue-card" style="padding:.4rem .6rem"><div class="qty" style="color:var(--green);font-size:1rem">' + activeCount + '</div><div class="qlabel">Ativas</div></div>' +
+    '<div class="queue-card" style="padding:.4rem .6rem"><div class="qty" style="color:var(--muted);font-size:1rem">' + (total - activeCount) + '</div><div class="qlabel">Inativas</div></div>';
+  tb.innerHTML = r.messages.map(function(m) {
+    var short = m.text.length > 100 ? m.text.slice(0, 100) + "..." : m.text;
+    var toggleColor = m.active ? "var(--green)" : "var(--muted)";
+    var toggleLabel = m.active ? "ATIVA" : "INATIVA";
+    var toggleIcon = m.active ? "✅" : "⬜";
+    return '<tr style="opacity:' + (m.active ? '1' : '0.55') + '">' +
+      '<td>' + m.id + '</td>' +
+      '<td title="' + esc(m.text) + '">' + esc(short) + '</td>' +
+      '<td><span style="cursor:pointer;font-size:.68rem;font-weight:600;color:' + toggleColor + '" onclick="toggleWAMsg(' + m.id + ')">' + toggleIcon + ' ' + toggleLabel + '</span></td>' +
+      '<td style="white-space:nowrap">' +
+        '<button class="btn btn-outline btn-sm" onclick="openWAMsgModal(' + m.id + ')">Editar</button> ' +
+        '<button class="btn btn-danger btn-sm" onclick="deleteWAMsg(' + m.id + ')">Excluir</button>' +
+      '</td></tr>';
+  }).join("");
+}
+
+window.toggleWAMsg = function(id) {
+  api("/api/admin/whatsapp-messages/" + id + "/toggle", { method: "POST" }).then(function(r) {
+    if (r.success) {
+      toast(r.active ? "Mensagem ativada" : "Mensagem desativada", "success");
+      loadWAMessages();
+    } else {
+      toast(r.error || "Erro", "error");
+    }
+  });
+};
+
+window.deleteWAMsg = function(id) {
+  if (!confirm("Excluir mensagem #" + id + "?")) return;
+  api("/api/admin/whatsapp-messages/" + id, { method: "DELETE" }).then(function(r) {
+    if (r.success) { toast("Excluída", "success"); loadWAMessages(); }
+    else toast(r.error || "Erro", "error");
+  });
+};
+
+// char counter
+document.addEventListener("input", function(e) {
+  if (e.target && e.target.id === "waMsgText") {
+    byId("waMsgCharCount").textContent = e.target.value.length + "/1600";
+  }
+});
 window._retryMsg = function(id) {
   api("/api/queue/retry/" + id, { method:"POST" }).then(function(d) { toast(d.message || "Reenfileirado", "info"); loadQueue() });
 }
@@ -511,7 +869,9 @@ function openTab(id, el) {
   if (id === "contatos") loadContacts();
   if (id === "logs") loadLogs();
   if (id === "relatorios") loadReports();
+  if (id === "templates") loadWAMessages();
   if (id === "fila") loadQueue();
+  if (id === "campanhas") loadCampaigns();
 }
 
 qa("#mainTabs .tab").forEach(function(tab) {
@@ -662,7 +1022,175 @@ function fullRefresh() {
   loadLogs();
   loadReports();
   loadQueue();
+  loadWAMessages();
+  loadCampaigns();
 }
+
+// ---- Campanhas ----
+var campaignData = [];
+
+async function loadCampaigns() {
+  var r = await api("/api/campaigns");
+  if (!r.success) return;
+  campaignData = r.campaigns || [];
+  var tb = byId("campaignsBody");
+  var statsEl = byId("campaignStats");
+  var total = campaignData.length;
+  var running = campaignData.filter(function(c) { return c.status === "running" }).length;
+  var completed = campaignData.filter(function(c) { return c.status === "completed" }).length;
+  var paused = campaignData.filter(function(c) { return c.status === "paused" }).length;
+  statsEl.innerHTML =
+    '<div class="queue-card" style="padding:.4rem .6rem"><div class="qty" style="color:var(--accent);font-size:1rem">' + total + '</div><div class="qlabel">Total</div></div>' +
+    '<div class="queue-card" style="padding:.4rem .6rem"><div class="qty" style="color:var(--green);font-size:1rem">' + running + '</div><div class="qlabel">Rodando</div></div>' +
+    '<div class="queue-card" style="padding:.4rem .6rem"><div class="qty" style="color:#f59e0b;font-size:1rem">' + paused + '</div><div class="qlabel">Pausadas</div></div>' +
+    '<div class="queue-card" style="padding:.4rem .6rem"><div class="qty" style="color:var(--muted);font-size:1rem">' + completed + '</div><div class="qlabel">Concluidas</div></div>';
+  if (!campaignData.length) {
+    tb.innerHTML = '<tr><td colspan="7" class="empty">Nenhuma campanha criada.</td></tr>';
+    return;
+  }
+  tb.innerHTML = campaignData.map(function(c) {
+    var statusColors = { draft: "#999", running: "var(--green)", paused: "#f59e0b", completed: "var(--accent)", cancelled: "#ef4444" };
+    var statusLabels = { draft: "RASCUNHO", running: "RODANDO", paused: "PAUSADA", completed: "CONCLUIDA", cancelled: "CANCELADA" };
+    var color = statusColors[c.status] || "#999";
+    var label = statusLabels[c.status] || c.status;
+    var actions = "";
+    if (c.status === "draft" || c.status === "paused") actions += '<button class="btn btn-primary btn-sm" onclick="startCampaign(' + c.id + ')">Iniciar</button> ';
+    if (c.status === "running") actions += '<button class="btn btn-warning btn-sm" onclick="pauseCampaign(' + c.id + ')">Pausar</button> ';
+    if (c.status !== "completed" && c.status !== "cancelled") actions += '<button class="btn btn-danger btn-sm" onclick="cancelCampaign(' + c.id + ')">Cancelar</button> ';
+    actions += '<button class="btn btn-outline btn-sm" onclick="viewCampaign(' + c.id + ')">Detalhes</button>';
+    var date = c.created_at ? c.created_at.slice(0, 16).replace(" ", " ") : "-";
+    return '<tr>' +
+      '<td style="font-weight:600">' + esc(c.name) + '</td>' +
+      '<td><span style="color:' + color + ';font-weight:600;font-size:.72rem">' + label + '</span></td>' +
+      '<td>' + (c.sent_count || 0) + '</td>' +
+      '<td>' + (c.pending_count || 0) + '</td>' +
+      '<td>' + (c.error_count || 0) + '</td>' +
+      '<td style="font-size:.72rem">' + date + '</td>' +
+      '<td style="white-space:nowrap">' + actions + '</td>' +
+      '</tr>';
+  }).join("");
+}
+
+window.openCampaignModal = function() {
+  byId("campaignModal").classList.add("active");
+  byId("campaignName").value = "";
+  byId("campaignNumbers").value = "";
+  byId("campaignNumCount").textContent = "0";
+  byId("campaignDelayMin").value = "180";
+  byId("campaignDelayMax").value = "300";
+  var fields = byId("campaignMsgFields");
+  fields.innerHTML = '<div style="display:flex;gap:.3rem;margin-bottom:.3rem">' +
+    '<textarea class="campaign-msg-input" rows="2" placeholder="Mensagem 1..." style="flex:1;padding:.4rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.78rem;resize:vertical"></textarea>' +
+    '<button class="btn btn-danger btn-sm" onclick="removeCampaignMsg(this)" style="align-self:flex-start" title="Remover">✕</button></div>';
+};
+
+window.closeCampaignModal = function() {
+  byId("campaignModal").classList.remove("active");
+};
+
+window.addCampaignMsgField = function() {
+  var fields = byId("campaignMsgFields");
+  var count = fields.querySelectorAll(".campaign-msg-input").length;
+  if (count >= 5) { toast("Maximo de 5 mensagens", "error"); return; }
+  var div = document.createElement("div");
+  div.style.cssText = "display:flex;gap:.3rem;margin-bottom:.3rem";
+  div.innerHTML = '<textarea class="campaign-msg-input" rows="2" placeholder="Mensagem ' + (count + 1) + '..." style="flex:1;padding:.4rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.78rem;resize:vertical"></textarea>' +
+    '<button class="btn btn-danger btn-sm" onclick="removeCampaignMsg(this)" style="align-self:flex-start" title="Remover">✕</button>';
+  fields.appendChild(div);
+};
+
+window.removeCampaignMsg = function(btn) {
+  var fields = byId("campaignMsgFields");
+  if (fields.querySelectorAll(".campaign-msg-input").length <= 1) { toast("Minimo de 1 mensagem", "error"); return; }
+  btn.closest("div[style*=flex]").remove();
+};
+
+byId("campaignNumbers").addEventListener("input", function() {
+  var lines = this.value.split("\n").filter(function(l) { return l.trim() });
+  byId("campaignNumCount").textContent = lines.length;
+});
+
+window.saveCampaign = async function() {
+  var name = byId("campaignName").value.trim();
+  var numbersRaw = byId("campaignNumbers").value;
+  var delayMin = parseInt(byId("campaignDelayMin").value, 10) || 180;
+  var delayMax = parseInt(byId("campaignDelayMax").value, 10) || 300;
+  var msgInputs = document.querySelectorAll(".campaign-msg-input");
+  var messages = [];
+  msgInputs.forEach(function(el) {
+    var v = el.value.trim();
+    if (v) messages.push(v);
+  });
+  var numbers = numbersRaw.split("\n").map(function(l) { return l.trim() }).filter(function(l) { return l });
+  if (!name) { toast("Informe o nome da campanha", "error"); return; }
+  if (!numbers.length) { toast("Informe pelo menos 1 numero", "error"); return; }
+  if (numbers.length > 100) { toast("Maximo de 100 numeros", "error"); return; }
+  if (!messages.length) { toast("Informe pelo menos 1 mensagem", "error"); return; }
+  if (messages.length > 5) { toast("Maximo de 5 mensagens", "error"); return; }
+  if (delayMin < 60) { toast("Delay minimo: 60 segundos", "error"); return; }
+  if (delayMax < delayMin) { toast("Delay maximo deve ser >= minimo", "error"); return; }
+  var r = await api("/api/campaigns", {
+    method: "POST",
+    body: JSON.stringify({ name, messages, numbers, delayMin, delayMax })
+  });
+  if (r.success) {
+    toast("Campanha criada com sucesso!", "success");
+    closeCampaignModal();
+    loadCampaigns();
+  } else {
+    toast(r.error || "Erro ao criar campanha", "error");
+  }
+};
+
+window.startCampaign = async function(id) {
+  if (!confirm("Iniciar esta campanha? Os envios comecarao imediatamente.")) return;
+  var r = await api("/api/campaigns/" + id + "/start", { method: "POST" });
+  if (r.success) {
+    toast("Campanha iniciada!", "success");
+    loadCampaigns();
+  } else {
+    toast(r.error || "Erro ao iniciar", "error");
+  }
+};
+
+window.pauseCampaign = async function(id) {
+  var r = await api("/api/campaigns/" + id + "/pause", { method: "POST" });
+  if (r.success) {
+    toast("Campanha pausada", "info");
+    loadCampaigns();
+  } else {
+    toast(r.error || "Erro ao pausar", "error");
+  }
+};
+
+window.cancelCampaign = async function(id) {
+  if (!confirm("Cancelar esta campanha? Os envios pendentes serao cancelados.")) return;
+  var r = await api("/api/campaigns/" + id + "/cancel", { method: "POST" });
+  if (r.success) {
+    toast("Campanha cancelada", "info");
+    loadCampaigns();
+  } else {
+    toast(r.error || "Erro ao cancelar", "error");
+  }
+};
+
+window.viewCampaign = async function(id) {
+  var r = await api("/api/campaigns/" + id);
+  var statsR = await api("/api/campaigns/" + id + "/stats");
+  if (!r.success || !r.campaign) return;
+  var c = r.campaign;
+  var s = statsR.stats || {};
+  var msg = "Campanha: " + c.name + "\n";
+  msg += "Status: " + c.status + "\n";
+  msg += "Total: " + c.total_numbers + " numeros\n";
+  msg += "Enviados: " + (s.sent || 0) + "\n";
+  msg += "Pendentes: " + (s.pending || 0) + "\n";
+  msg += "Erros: " + (s.error || 0) + "\n";
+  msg += "Delay: " + c.delay_min + "s - " + c.delay_max + "s\n";
+  if (s.estimatedCompletion) msg += "Tempo estimado: " + s.estimatedCompletion + "\n";
+  msg += "Mensagens: " + (c.messages || []).length + " modelos\n";
+  alert(msg);
+};
 
 fetchDashboard();
 loadMessages();
@@ -670,9 +1198,12 @@ loadContacts();
 loadLogs();
 loadReports();
 loadQueue();
+loadWAMessages();
+loadCampaigns();
 setInterval(fetchDashboard, 5000);
 setInterval(loadQueue, 8000);
 setInterval(loadMessages, 10000);
+setInterval(loadCampaigns, 12000);
 </script>
 </body>
 </html>`;

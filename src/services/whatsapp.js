@@ -50,6 +50,12 @@ export class WhatsAppService {
     return { success: false, code: "NO_ACCOUNT_READY", error: "Nenhuma conta WhatsApp conectada e pronta." };
   }
 
+  async sendMessageToQueue(number, message, metadata = {}) {
+    const { default: queueModule } = await import("./queue.js");
+    const id = await queueModule.enqueue(number, message, metadata);
+    return { success: true, queueId: id };
+  }
+
   async reconnect() {
     return this.accounts[0]?.reconnect() ?? null;
   }

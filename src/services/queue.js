@@ -39,7 +39,51 @@ async function getDb() {
   try { db.run("ALTER TABLE message_queue ADD COLUMN account INTEGER"); } catch {}
   db.run("CREATE INDEX IF NOT EXISTS idx_queue_account ON message_queue(account)");
   _save();
+  _initCampaignTables(db);
   return db;
+}
+
+function _initCampaignTables(database) {
+  try {
+    database.run(`
+      CREATE TABLE IF NOT EXISTS campaigns (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'draft',
+        messages TEXT NOT NULL DEFAULT '[]',
+        numbers TEXT NOT NULL DEFAULT '[]',
+        delay_min INTEGER NOT NULL DEFAULT 180,
+        delay_max INTEGER NOT NULL DEFAULT 300,
+        total_numbers INTEGER NOT NULL DEFAULT 0,
+        sent_count INTEGER NOT NULL DEFAULT 0,
+        error_count INTEGER NOT NULL DEFAULT 0,
+        pending_count INTEGER NOT NULL DEFAULT 0,
+        last_sent_at TEXT,
+        estimated_completion TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+      )
+    `);
+    database.run(`
+      CREATE TABLE IF NOT EXISTS campaign_sends (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        campaign_id INTEGER NOT NULL,
+        phone TEXT NOT NULL,
+        message_sent TEXT,
+        message_index INTEGER DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'pending',
+        error TEXT,
+        sent_at TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+        FOREIGN KEY (campaign_id) REFERENCES campaigns(id)
+      )
+    `);
+    database.run("CREATE INDEX IF NOT EXISTS idx_campaign_sends_campaign ON campaign_sends(campaign_id)");
+    database.run("CREATE INDEX IF NOT EXISTS idx_campaign_sends_status ON campaign_sends(status)");
+    log.info("[queue] Tabelas de campanha inicializadas");
+  } catch (err) {
+    log.error("[queue] Erro ao criar tabelas de campanha", { error: err.message });
+  }
 }
 
 function _save() {
@@ -220,6 +264,10 @@ export function closeDb() {
     db = null;
     log.info("[queue] Banco fechado");
   }
+}
+
+export function getDbInstance() {
+  return db;
 }
 
 function _rowsToObjects(rows, columns) {
